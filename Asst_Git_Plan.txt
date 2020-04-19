@@ -1,0 +1,70 @@
+
+	Hashing!! 
+	
+	Does the server read/write from the same file descriptor. Or is there a separate read file
+		and write file
+	Can the server and client send a message at the same time?
+	
+Server:
+	Open server on IP:Port
+
+Client Commands:
+	configure
+		Save ./.configure file with ip and port to connect to server
+	checkout
+		Send over the whole project from server to client
+	update
+		Remove old .up/.con. Create .update and/or .conflict.
+		Compare server .man to client .man tell what to .update
+		.conflict added only if client has edited a file that needs to be updated
+			Detecting whether this has happened??
+				---------Methodology-------
+	upgrade
+		Apply changes from update
+	commit
+		Write a .Commit by live hashing. Does not create a .conflict, just .
+		Basically does a .update but with live-hashing to check whether we need to .commit
+	push
+		upgrade for commits.
+	create
+		Create .Manifest on server with project name. Send to client.
+	destroy
+		Remove project and all its file
+			Where is the delte(client & server?)
+	add
+		Adds file to .manifest (locally)
+			Does the file have to exist? Should it be created if it doesn't?
+				Assumign no for now, throws error
+	remove
+		Remove entry for a .Manifest
+			What happens if entry is not in .manifest
+				Throw error
+	currentversion
+		Return manifest version, and all file names with their version
+	history
+		Just append .update to histry
+	rollback
+		Set serverversion back to some version specified if that version exists. Delete all updates
+			Gotta think about. Thinking recursive method going backward through history until it hits the proper version
+			
+
+Plan::::
+		1. Simple server (single threaded)
+				First send strings to each other
+					Send a filename you want to oopen, have server send file bytes back
+					**Get server/cliemt to send files and write files (single).
+		2. Make server multi-threaded
+			make void*/void*
+			Mutex locks
+		2.5) Configure
+		
+		3. Create ()/ Destroy()
+		4. History ()
+		5. CurrentVersion
+		6. Add ()/ Remove()
+		
+		7. Update ()/ Commit ()
+		8. Upgrade/Push
+		
+		9. Checkout()
+		10. Rollback/ Extra Cre (compress old versions/Use zlib/tar library)
