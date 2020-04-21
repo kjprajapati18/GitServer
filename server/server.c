@@ -7,6 +7,31 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <unistd.h>
+#include <pthread.h>
+
+void* chatFunc(void* arg){
+
+    write(newsockfd, "You are connected to the server", 32);
+    bytes= read(newsockfd, buffer, 255);
+    if(bytes < 0) printf("error reading from socket");
+    printf("Received filename: %s", buffer);
+    buffer[12] = '\0';
+    printf("String Lenght: %d\n", strlen(buffer));
+    int filefd = open(buffer, O_RDWR);
+    if(filefd < 0){
+        printf("FD: %d\n", filefd);
+        error("couldn't open file");
+        close(filefd);
+    }
+    bzero(buffer, 256);
+    bytes = read(filefd, buffer, 255);
+    printf("Sending string: %s\n", buffer);
+    bytes = write(newsockfd, buffer, bytes);
+    if (bytes <  0) printf("error writing to socket\n");
+    //close socket
+    close(sockfd);
+}
 
 void error(char* msg){
     perror(msg);
@@ -59,6 +84,8 @@ int main(int argc, char* argv[]){
 
     clilen = sizeof(cliaddr);
 
+    bzero(buffer, 256); 
+
     //accept packets from client
     newsockfd = accept(sockfd, (struct sockaddr*) &cliaddr, &clilen);
     if(newsockfd < 0){
@@ -66,26 +93,11 @@ int main(int argc, char* argv[]){
         exit(0);
     }
     else printf("server accepted client\n");
+    //thread part
+    pthread_t thread_id;
+    if(pthread_create(&thread_id, NULL, chatFunc, arg))
 
     //chatting between client and server
-    bzero(buffer, 256);
-    bytes= read(newsockfd, buffer, 255);
-    if(bytes < 0) printf("error reading from socket");
-    printf("Received filename: %s", buffer);
-    buffer[12] = '\0';
-    printf("String Lenght: %d\n", strlen(buffer));
-    int filefd = open(buffer, O_RDWR);
-    if(filefd < 0){
-        printf("FD: %d\n", filefd);
-        error("couldn't open file");
-        close(filefd);
-    }
-    bzero(buffer, 256);
-    bytes = read(filefd, buffer, 255);
-    printf("Sending string: %s\n", buffer);
-    bytes = write(newsockfd, buffer, bytes);
-    if (bytes <  0) printf("error writing to socket\n");
-    //close socket
-    close(sockfd);
+    
     return 0;
 }
