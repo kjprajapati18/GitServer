@@ -7,6 +7,7 @@
 #include <netinet/in.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <unistd.h>
 
 void error(char* msg){
     perror(msg);
@@ -59,6 +60,13 @@ int main(int argc, char* argv[]){
         exit(0);
     }
 
+    bzero(buffer, 256);
+    bytes = read(sockfd, buffer, 255);
+    if(bytes < 0){
+        printf("error reading from socket\n");
+        exit(0);
+    }
+    printf("Received string: %s\n", buffer);
     bzero(buffer, 256);
     bytes = read(sockfd, buffer, 255);
     if(bytes < 0){

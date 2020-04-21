@@ -10,33 +10,10 @@
 #include <unistd.h>
 #include <pthread.h>
 
-void* chatFunc(void* arg){
+pthread_mutex_t alock; 
+void* chatFunc(void*);
+void error(char*);
 
-    write(newsockfd, "You are connected to the server", 32);
-    bytes= read(newsockfd, buffer, 255);
-    if(bytes < 0) printf("error reading from socket");
-    printf("Received filename: %s", buffer);
-    buffer[12] = '\0';
-    printf("String Lenght: %d\n", strlen(buffer));
-    int filefd = open(buffer, O_RDWR);
-    if(filefd < 0){
-        printf("FD: %d\n", filefd);
-        error("couldn't open file");
-        close(filefd);
-    }
-    bzero(buffer, 256);
-    bytes = read(filefd, buffer, 255);
-    printf("Sending string: %s\n", buffer);
-    bytes = write(newsockfd, buffer, bytes);
-    if (bytes <  0) printf("error writing to socket\n");
-    //close socket
-    close(sockfd);
-}
-
-void error(char* msg){
-    perror(msg);
-    exit(1);
-}
 
 int main(int argc, char* argv[]){
     int sockfd;
@@ -83,9 +60,6 @@ int main(int argc, char* argv[]){
 
 
     clilen = sizeof(cliaddr);
-
-    bzero(buffer, 256); 
-
     //accept packets from client
     newsockfd = accept(sockfd, (struct sockaddr*) &cliaddr, &clilen);
     if(newsockfd < 0){
@@ -93,11 +67,43 @@ int main(int argc, char* argv[]){
         exit(0);
     }
     else printf("server accepted client\n");
-    //thread part
+    //thread part  //chatting between client and server
     pthread_t thread_id;
-    if(pthread_create(&thread_id, NULL, chatFunc, arg))
+    if(pthread_create(&thread_id, NULL, chatFunc, &newsockfd) != 0){
+        error("thread creation error");
+    }
+    pthread_join(thread_id, NULL);
 
-    //chatting between client and server
-    
+    close(sockfd);
     return 0;
+}
+
+
+void *chatFunc(void* arg){
+    pthread_mutex_init(&alock, NULL);
+    int newsockfd = *(int*)arg;
+    char buffer[256];
+    write(newsockfd, "You are connected to the server", 32);
+    int bytes= read(newsockfd, buffer, 255);
+    if(bytes < 0) printf("error reading from socket");
+    printf("Received filename: %s", buffer);
+    buffer[strlen(buffer)-1] = '\0';
+    pthread_mutex_lock(&alock);
+    int filefd = open(buffer, O_RDWR);
+    if(filefd < 0){
+        error("couldn't open file");
+        close(filefd);
+    }
+    bzero(buffer, 256);
+    bytes = read(filefd, buffer, 255);
+    printf("Sending string: %s\n", buffer);
+    bytes = write(newsockfd, buffer, bytes);
+    pthread_mutex_unlock(&alock);
+    if (bytes <  0) printf("error writing to socket\n");
+    close(newsockfd);
+}
+
+void error(char* msg){
+    perror(msg);
+    exit(1);
 }
