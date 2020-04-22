@@ -60,21 +60,21 @@ int main(int argc, char* argv[]){
 
 
     clilen = sizeof(cliaddr);
-    //accept packets from client
-    newsockfd = accept(sockfd, (struct sockaddr*) &cliaddr, &clilen);
-    if(newsockfd < 0){
-        printf("server could not accept\n");
-        exit(0);
+    while(1){
+        //accept packets from clients
+        newsockfd = accept(sockfd, (struct sockaddr*) &cliaddr, &clilen);
+        if(newsockfd < 0){
+            printf("server could not accept a client\n");
+            continue;
+        }
+        printf("server accepted client\n");
+        //thread part  //chatting between client and server
+        pthread_t thread_id;
+        if(pthread_create(&thread_id, NULL, chatFunc, &newsockfd) != 0){
+            error("thread creation error");
+        }
     }
-    else printf("server accepted client\n");
-    //thread part  //chatting between client and server
-    pthread_t thread_id;
-    if(pthread_create(&thread_id, NULL, chatFunc, &newsockfd) != 0){
-        error("thread creation error");
-    }
-    pthread_join(thread_id, NULL);
-
-    close(sockfd);
+    // close(sockfd) with a signal handler. can only be killed with sigkill
     return 0;
 }
 
