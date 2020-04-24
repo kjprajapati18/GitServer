@@ -60,7 +60,6 @@ int main(int argc, char* argv[]){
     }
     else printf("server listening\n");
 
-    //char cmd[15];
     clilen = sizeof(cliaddr);
     while(1){
         //accept packets from clients
@@ -70,8 +69,9 @@ int main(int argc, char* argv[]){
             continue;
         }
         printf("server accepted client\n");
-
-        /*bytes = write(newsockfd, "You are connected to the server", 32);
+        char cmd[15];
+        bzero(cmd, 15);
+        bytes = write(newsockfd, "You are connected to the server", 32);
         if(bytes < 0) error("Could not write to client");
         bytes = read(newsockfd, cmd, sizeof(cmd));
         if (bytes < 0) error("Coult not read from client");
@@ -86,6 +86,16 @@ int main(int argc, char* argv[]){
     return 0;
 }
 
+void* destroy(void* arg){
+    pthread_mutex_init(&alock, NULL);
+    int socket = *((int*) arg);
+    int bytes = readSizeClient(socket);
+    char projName[bytes + 1];
+    projName[bytes] = '\0';
+    read(socket, projName, bytes);
+    //now projName has the string name of the file to destroy
+    
+}
 
 void *chatFunc(void* arg){
     pthread_mutex_init(&alock, NULL);
