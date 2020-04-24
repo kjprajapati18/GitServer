@@ -91,14 +91,10 @@ int main(int argc, char* argv[]){
         return -1;
     }
     
-<<<<<<< HEAD
     read(sockfd, buffer, 32);
     printf("%s\n", buffer);
     write(sockfd, argv[1], strlen(argv[1]));
-=======
-    sendServerCommand(sockfd, argv[1], strlen(argv[1]));
     char cmd[15]; bzero(cmd, 15);
->>>>>>> 00643de0fb1fc9cd35175e7191b902f244ea564c
     //write(sockfd, argv[1], strlen(argv[1]));
     switch(mode){
         case checkout:
@@ -129,23 +125,10 @@ int main(int argc, char* argv[]){
         case create:
         //add string to sprintf
             //performCreate(socket, argv);
-<<<<<<< HEAD
             int nameSize = strlen(argv[2])
             char sendFile[11+nameSize];
             sprintf(sendFile, "%d:%s:", nameSize, argv[2]);
             write(sockfd, sendFile, strlen(sendFile)); 
-=======
-            {read(sockfd, buffer, 32);
-            printf("%s\n", buffer);
-            strncpy(cmd, argv[1], strlen(argv[1]));
-            write(sockfd, cmd, 15);
-            int nameSize;
-            nameSize = strlen(argv[2]);
-            char nameSizeStr[11];
-            sprintf(nameSizeStr, "%d", nameSize);
-            sendServerCommand(sockfd, nameSizeStr, strlen(nameSizeStr)); 
-            sendServerCommand(sockfd, argv[2], strlen(argv[2]));
->>>>>>> 00643de0fb1fc9cd35175e7191b902f244ea564c
             read(sockfd, buffer, 255);
             printf("%s\n", buffer);
             printf("create\n");
