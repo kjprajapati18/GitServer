@@ -83,7 +83,6 @@ int main(int argc, char* argv[]){
     }
     
     sendServerCommand(sockfd, argv[1], strlen(argv[1]));
-    sendServerCommand(sockfd, argv[2], strlen(argv[2]));
     //write(sockfd, argv[1], strlen(argv[1]));
     switch(mode){
         case checkout:
@@ -112,6 +111,7 @@ int main(int argc, char* argv[]){
             printf("push\n");
             break;
         case create: 
+            sendServerCommand(sockfd, argv[2], strlen(argv[2]));
             read(sockfd, buffer, 255);
             printf("%s\n", buffer);
             printf("create\n");
