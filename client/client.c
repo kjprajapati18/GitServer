@@ -91,36 +91,26 @@ int main(int argc, char* argv[]){
         return -1;
     }
     
-    char cmd[15]; bzero(cmd, 15);
+    char cmd[3]; bzero(cmd, 3);
     read(sockfd, buffer, 32);
     printf("%s\n", buffer);
-    strncpy(cmd, argv[1], strlen(argv[1]));
-    write(sockfd, cmd, 15);
+    sprintf(cmd, "%d", mode);
+    write(sockfd, cmd, 3);
     //write(sockfd, argv[1], strlen(argv[1]));
     switch(mode){
         case checkout:
-            bytes = read(sockfd, buffer, 32);
-            printf("%s\n", buffer);
             printf("checkout\n");
             break;
-        case update: 
-            read(sockfd, buffer, 32);
-            printf("%s\n", buffer);            
+        case update:          
             printf("update\n");
             break; 
         case upgrade: 
-            read(sockfd, buffer, 32);
-            printf("%s\n", buffer);
             printf("upgrade\n");
             break;
         case commit: 
-            read(sockfd, buffer, 32);
-            printf("%s\n", buffer);
             printf("commit\n");
             break;
         case push: 
-            read(sockfd, buffer, 32);
-            printf("%s\n", buffer);
             printf("push\n");
             break;
         case create:{
