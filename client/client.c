@@ -10,29 +10,52 @@
 #include <unistd.h>
 
 void error(char* msg){
-    perror(msg);
+    printf("%s", msg);
     exit(1);
 }
+void writeConfigureFile(char* IP, char* port);
+void getConfigInfo(int config, char** ipAddr, int* port);
+int writeString(int fd, char* string);
+int connectToServer();
 
 int main(int argc, char* argv[]){
     int sockfd;
     int port;
+    char* ipAddr;
     int bytes;
     struct sockaddr_in servaddr;
     struct hostent *server;
 
     char buffer[256];
-    if (argc < 3){
+    /*if (argc < 3){
         printf("need hostname and port\n");
         exit(0);
+    }*/
+
+    //Should we check that IP/Host && Port are valid
+    if(strcmp(argv[1], "configure") == 0){
+        if(argc < 4) error("Not enough arguments for configure. Need IP & Port\n");
+        writeConfigureFile(argv[2], argv[3]);
+        return 0;
     }
 
+    int configureFile = open(".configure", O_RDONLY);
+    if(configureFile < 0) error("Fatal Error: There is no configure file. Please use ./WTFclient configure <IP/host> <Port>\n");
+    getConfigInfo(configureFile, &ipAddr, &port);
+    close(configureFile);
+
+    sockfd = connectToServer(configureFile);
+    close(configureFile);
+
+/*
     port = atoi(argv[2]);
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if(sockfd == -1){
         error("error opening socket");
     }
     else printf("successfully opened socket\n");
+
+
 
     server = gethostbyname(argv[1]);
     if (server == NULL){
@@ -50,7 +73,7 @@ int main(int argc, char* argv[]){
         error("error connecting to host\n");
     }
     else printf("successfully connected to host\n");
-
+*/
     printf("Please enter the filename to send: \n");
     bzero(buffer, 256);
     fgets(buffer, 255, stdin);
@@ -77,4 +100,97 @@ int main(int argc, char* argv[]){
     return 0;
 
 
+}
+
+void writeConfigureFile(char* IP, char* port){
+    remove(".configure");
+    int configureFile = open(".configure", O_CREAT | O_WRONLY, 00600);
+    if(configureFile < 0) error("Could not create a .configure file\n");
+    
+    int writeCheck = 0;
+    writeCheck += writeString(configureFile, IP);
+    writeCheck += writeString(configureFile, "\n");
+    writeCheck += writeString(configureFile, port);
+    close(configureFile);
+    if(writeCheck != 0) error("Could not write to .configure file\n");
+}
+
+//Will read the config file and return output in ipAddr and port
+//On error, it will close the config file and quit
+void getConfigInfo(int config, char** ipAddr, int* port){
+    char buffer[256]; //The config file should not be more than a couple of bytes
+    int status = 0, byteRead = 0;
+    ipAddr = NULL;
+    *port = 0;
+
+    do{
+        status = read(config, buffer + bytesRead, 256-bytesRead);
+        if(status < 0){
+            close(config);
+            error("Fatal Error: Unable to read .configure file\n");
+        }
+        bytesRead += status;
+    } while(status != 0);
+
+    for(int i = 0, i<bytesRead, i++){
+        // '\n' is the delimiter in .configure. Therefore, copy everything before it into the IP address, and everything after will be the port
+        if(buffer[i] == '\n'){
+            buffer[i] = '\0';
+
+            *ipAddr = (char*) malloc(sizeof(char) * (i+1));
+            *(*ipAddr) = '\0';
+            strcpy(*ipAddr, buffer);
+
+            *port = atoi(buffer+i+1);
+            break;
+        }
+    }
+
+    if(*port == 0 || ipAddr == NULL){
+        close(config);
+        error("Fatal Error: .configure file has been corrupted or changed. Please use the configure command to fix file\n");
+    }    
+
+}
+
+//Write to fd. Return 0 on success but 1 if there was a write error
+int writeString(int fd, char* string){
+
+    int status = 0, bytesWritten = 0, strLength = strlen(string);
+    
+    do{
+        status = write(fd, string + bytesWritten, strLength - bytesWritten);
+        bytesWritten += status;
+    }while(status > 0 && bytesWritten < strLength);
+    
+    if(status < 0) return 1;
+    return 0;
+}
+
+int connectToServer(){
+    port = atoi(argv[2]);
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if(sockfd == -1){
+        error("error opening socket");
+    }
+    else printf("successfully opened socket\n");
+
+
+
+    server = gethostbyname(argv[1]);
+    if (server == NULL){
+        printf("error getting host\n");
+        exit(0);
+    }
+    else printf("successfully found host\n");
+
+    bzero(&servaddr, sizeof(servaddr));
+    servaddr.sin_family = AF_INET;
+    bcopy((char *)server->h_addr, (char *)&servaddr.sin_addr.s_addr, server->h_length);
+    //servaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    servaddr.sin_port = htons(port);
+    if(connect(sockfd, (struct sockaddr*) &servaddr, sizeof(servaddr)) != 0){
+        error("error connecting to host\n");
+    }
+    else printf("successfully connected to host\n");
 }
