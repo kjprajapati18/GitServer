@@ -10,33 +10,27 @@
 #include <unistd.h>
 
 void error(char* msg){
-    printf("%s", msg);
+    perror(msg);
     exit(1);
 }
+
+typedef enum command{
+    checkout, update, upgrade, commit, push, create, destroy, add, rmv, currentversion, history, rollback
+} command;
 
 void writeConfigureFile(char* IP, char* port);
 char* getConfigInfo(int config, int* port);
 int writeString(int fd, char* string);
-int connectToServer();
+//int connectToServer(char* ipAddr, int port);
 command argCheck(char* arg);
 
-typdef enum command{
-    checkout, update, upgrade, commit, push, create, destroy, add, remove, currentversion, history, rollback
-} command;
-int connectToServer(char* ipAddr, int port);
-
 int main(int argc, char* argv[]){
-    int sockfd;
+    //int sockfd;
     int port;
     char* ipAddr;
     int bytes;
 
     char buffer[256];
-    /*if (argc < 3){
-        printf("need hostname and port\n");
-        exit(0);
-    }*/
-
     //Should we check that IP/Host && Port are valid
     if(strcmp(argv[1], "configure") == 0){
         if(argc < 4) error("Not enough arguments for configure. Need IP & Port\n");
@@ -46,55 +40,23 @@ int main(int argc, char* argv[]){
 
     int configureFile = open(".configure", O_RDONLY);
     if(configureFile < 0) error("Fatal Error: There is no configure file. Please use ./WTF configure <IP/host> <Port>\n");
-    getConfigInfo(configureFile, &ipAddr, &port);
+    ipAddr = getConfigInfo(configureFile, &port);
     close(configureFile);
 
-    sockfd = connectToServer(configureFile);
-    close(configureFile);
+    //connectToServer(ipAddr, port);
+    struct sockaddr_in servaddr;
+    struct hostent *server;
 
-    command mode = argCheck(argv[1]);
-    switch(mode){
-        case checkout: printf("checkout\n");
-            break;
-        case update: printf("update\n");
-            break; 
-        case upgrade: printf("upgrade\n");
-            break;
-        case commit: printf("commit\n");
-            break;
-        case push: printf("push\n");
-            break;
-        case create: printf("create\n");
-            break;
-        case destroy: printf("destroy\n");
-            break;
-        case add: printf("add\n");
-            break;
-        case remove: printf("remove\n");
-            break;
-        case currentversion: printf("currentversion\n");
-            break;
-        case history: printf("history\n");
-            break;
-        case rollback: printf("rollback\n");
-            break;
-        default:
-            break;
-    }
-
-/*
-    port = atoi(argv[2]);
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if(sockfd == -1){
         error("error opening socket");
     }
     else printf("successfully opened socket\n");
 
-
-
-    server = gethostbyname(argv[1]);
+    server = gethostbyname(ipAddr);
+    
     if (server == NULL){
-        printf("error getting host\n");
+        printf("Fatal Error: Cannot get host. Is the given IP/host correct?\n");
         exit(0);
     }
     else printf("successfully found host\n");
@@ -104,34 +66,80 @@ int main(int argc, char* argv[]){
     bcopy((char *)server->h_addr, (char *)&servaddr.sin_addr.s_addr, server->h_length);
     //servaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
     servaddr.sin_port = htons(port);
-    if(connect(sockfd, (struct sockaddr*) &servaddr, sizeof(servaddr)) != 0){
-        error("error connecting to host\n");
+    while(connect(sockfd, (struct sockaddr*) &servaddr, sizeof(servaddr)) != 0){
+        printf("Error: Could not connect to server. Retrying in 3 seconds...\n");
+        sleep(3);
     }
-    else printf("successfully connected to host\n");
-*/
- /*   printf("Please enter the filename to send: \n");
-    bzero(buffer, 256);
-    fgets(buffer, 255, stdin);
-    bytes = write(sockfd, buffer, strlen(buffer));
-    if (bytes < 0){
-        printf("error writing to socket\n");
-        exit(0);
-    }
+    printf("successfully connected to host.\n");
 
-    bzero(buffer, 256);
-    bytes = read(sockfd, buffer, 255);
-    if(bytes < 0){
-        printf("error reading from socket\n");
-        exit(0);
+
+    //figure out what command to operate
+    command mode = argCheck(argv[1]);
+    switch(mode){
+        case checkout:
+            bytes = read(sockfd, buffer, 255);
+            printf("%s\n", buffer);
+            printf("checkout\n");
+            break;
+        case update: 
+            read(sockfd, buffer, 255);
+            printf("%s\n", buffer);            
+            printf("update\n");
+            break; 
+        case upgrade: 
+            read(sockfd, buffer, 255);
+            printf("%s\n", buffer);
+            printf("upgrade\n");
+            break;
+        case commit: 
+            read(sockfd, buffer, 255);
+            printf("%s\n", buffer);
+            printf("commit\n");
+            break;
+        case push: 
+            read(sockfd, buffer, 255);
+            printf("%s\n", buffer);
+            printf("push\n");
+            break;
+        case create: 
+            read(sockfd, buffer, 255);
+            printf("%s\n", buffer);
+            printf("create\n");
+            break;
+        case destroy: 
+            read(sockfd, buffer, 255);
+            printf("%s\n", buffer);
+            printf("destroy\n");
+            break;
+        case add: 
+            read(sockfd, buffer, 255);
+            printf("%s\n", buffer);
+            printf("add\n");
+            break;
+        case rmv: 
+            read(sockfd, buffer, 255);
+            printf("%s\n", buffer);
+            printf("remove\n");
+            break;
+        case currentversion: 
+            read(sockfd, buffer, 255);
+            printf("%s\n", buffer);
+            printf("currentversion\n");
+            break;
+        case history: 
+            read(sockfd, buffer, 255);
+            printf("%s\n", buffer);
+            printf("history\n");
+            break;
+        case rollback: 
+            read(sockfd, buffer, 255);
+            printf("%s\n", buffer);
+            printf("rollback\n");
+            break;
+        default:
+            break;
     }
-    printf("Received string: %s\n", buffer);
-    bzero(buffer, 256);
-    bytes = read(sockfd, buffer, 255);
-    if(bytes < 0){
-        printf("error reading from socket\n");
-        exit(0);
-    }
-    printf("Received string: %s\n", buffer);*/
+    write(sockfd, argv[1], strlen(argv[1]));
     return 0;
 
 
@@ -204,7 +212,7 @@ int writeString(int fd, char* string){
     return 0;
 }
 
-int connectToServer(char* ipAddr, int port){
+/*int connectToServer(char* ipAddr, int port){
     struct sockaddr_in servaddr;
     struct hostent *server;
 
@@ -231,8 +239,8 @@ int connectToServer(char* ipAddr, int port){
         printf("Error: Could not connect to server. Retrying in 3 seconds...\n");
         sleep(3);
     }
-    else printf("successfully connected to host\n");
-}
+    printf("successfully connected to host\n");
+}*/
 
 command argCheck(char* arg){
     command mode;
@@ -243,7 +251,7 @@ command argCheck(char* arg){
     else if(strcmp(arg, "create") == 0) mode = create;
     else if(strcmp(arg, "destroy") == 0) mode = destroy;
     else if(strcmp(arg, "add") == 0) mode = add;
-    else if(strcmp(arg, "remove") == 0) mode = remove;
+    else if(strcmp(arg, "remove") == 0) mode = rmv;
     else if(strcmp(arg, "currentversion") == 0) mode = currentversion;
     else if(strcmp(arg, "history") == 0) mode = history;
     else if(strcmp(arg, "rollback") == 0) mode = rollback;

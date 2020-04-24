@@ -58,7 +58,7 @@ int main(int argc, char* argv[]){
     }
     else printf("server listening\n");
 
-
+    char cmd[15];
     clilen = sizeof(cliaddr);
     while(1){
         //accept packets from clients
@@ -68,6 +68,11 @@ int main(int argc, char* argv[]){
             continue;
         }
         printf("server accepted client\n");
+
+        bytes = write(newsockfd, "You are connected to the server", 32);
+        if(bytes < 0) printf("Could not write to client");
+        bytes = read(newsockfd, cmd, sizeof(cmd));
+        printf("Chosen Command: %s\n", cmd);
         //thread part  //chatting between client and server
         pthread_t thread_id;
         if(pthread_create(&thread_id, NULL, chatFunc, &newsockfd) != 0){
@@ -81,26 +86,12 @@ int main(int argc, char* argv[]){
 
 void *chatFunc(void* arg){
     pthread_mutex_init(&alock, NULL);
-    int newsockfd = *(int*)arg;
-    char buffer[256];
-    write(newsockfd, "You are connected to the server", 32);
-    int bytes= read(newsockfd, buffer, 255);
-    if(bytes < 0) printf("error reading from socket");
-    printf("Received filename: %s", buffer);
-    buffer[strlen(buffer)-1] = '\0';
-    pthread_mutex_lock(&alock);
-    int filefd = open(buffer, O_RDWR);
-    if(filefd < 0){
-        error("couldn't open file");
-        close(filefd);
-    }
-    bzero(buffer, 256);
-    bytes = read(filefd, buffer, 255);
-    printf("Sending string: %s\n", buffer);
-    bytes = write(newsockfd, buffer, bytes);
-    pthread_mutex_unlock(&alock);
-    if (bytes <  0) printf("error writing to socket\n");
-    close(newsockfd);
+    //int newsockfd = *(int*)arg;
+    //int bytes;
+    
+    //pthread_mutex_lock(&alock);
+    //pthread_mutex_unlock(&alock);
+    //close(newsockfd);
 }
 
 void error(char* msg){
