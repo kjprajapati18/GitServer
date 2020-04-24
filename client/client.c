@@ -14,17 +14,15 @@ void error(char* msg){
     exit(1);
 }
 void writeConfigureFile(char* IP, char* port);
-void getConfigInfo(int config, char** ipAddr, int* port);
+char* getConfigInfo(int config, int* port);
 int writeString(int fd, char* string);
-int connectToServer();
+int connectToServer(char* ipAddr, int port);
 
 int main(int argc, char* argv[]){
     int sockfd;
     int port;
     char* ipAddr;
     int bytes;
-    struct sockaddr_in servaddr;
-    struct hostent *server;
 
     char buffer[256];
     /*if (argc < 3){
@@ -41,12 +39,10 @@ int main(int argc, char* argv[]){
 
     int configureFile = open(".configure", O_RDONLY);
     if(configureFile < 0) error("Fatal Error: There is no configure file. Please use ./WTFclient configure <IP/host> <Port>\n");
-    getConfigInfo(configureFile, &ipAddr, &port);
+    ipAddr = getConfigInfo(configureFile, &port);
     close(configureFile);
 
-    sockfd = connectToServer(configureFile);
-    close(configureFile);
-
+    sockfd = connectToServer(ipAddr, port);
 /*
     port = atoi(argv[2]);
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -117,10 +113,10 @@ void writeConfigureFile(char* IP, char* port){
 
 //Will read the config file and return output in ipAddr and port
 //On error, it will close the config file and quit
-void getConfigInfo(int config, char** ipAddr, int* port){
+char* getConfigInfo(int config, int* port){
     char buffer[256]; //The config file should not be more than a couple of bytes
-    int status = 0, byteRead = 0;
-    ipAddr = NULL;
+    int status = 0, bytesRead = 0;
+    char* ipRead = NULL;
     *port = 0;
 
     do{
@@ -132,25 +128,27 @@ void getConfigInfo(int config, char** ipAddr, int* port){
         bytesRead += status;
     } while(status != 0);
 
-    for(int i = 0, i<bytesRead, i++){
+    int i;
+    for(i = 0; i<bytesRead; i++){
         // '\n' is the delimiter in .configure. Therefore, copy everything before it into the IP address, and everything after will be the port
         if(buffer[i] == '\n'){
             buffer[i] = '\0';
 
-            *ipAddr = (char*) malloc(sizeof(char) * (i+1));
-            *(*ipAddr) = '\0';
-            strcpy(*ipAddr, buffer);
+            ipRead = (char*) malloc(sizeof(char) * (i+1));
+            *ipRead = '\0';
+            strcpy(ipRead, buffer);
 
             *port = atoi(buffer+i+1);
             break;
         }
     }
 
-    if(*port == 0 || ipAddr == NULL){
+    if(*port == 0 || ipRead == NULL){
         close(config);
         error("Fatal Error: .configure file has been corrupted or changed. Please use the configure command to fix file\n");
     }    
 
+    return ipRead;
 }
 
 //Write to fd. Return 0 on success but 1 if there was a write error
@@ -167,19 +165,20 @@ int writeString(int fd, char* string){
     return 0;
 }
 
-int connectToServer(){
-    port = atoi(argv[2]);
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+int connectToServer(char* ipAddr, int port){
+    struct sockaddr_in servaddr;
+    struct hostent *server;
+
+    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if(sockfd == -1){
         error("error opening socket");
     }
     else printf("successfully opened socket\n");
 
-
-
-    server = gethostbyname(argv[1]);
+    server = gethostbyname(ipAddr);
+    
     if (server == NULL){
-        printf("error getting host\n");
+        printf("Fatal Error: Cannot get host. Is the given IP/host correct?\n");
         exit(0);
     }
     else printf("successfully found host\n");
@@ -189,8 +188,11 @@ int connectToServer(){
     bcopy((char *)server->h_addr, (char *)&servaddr.sin_addr.s_addr, server->h_length);
     //servaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
     servaddr.sin_port = htons(port);
-    if(connect(sockfd, (struct sockaddr*) &servaddr, sizeof(servaddr)) != 0){
-        error("error connecting to host\n");
+    while(connect(sockfd, (struct sockaddr*) &servaddr, sizeof(servaddr)) != 0){
+        printf("Error: Could not connect to server. Retrying in 3 seconds...\n");
+        sleep(3);
     }
-    else printf("successfully connected to host\n");
+    printf("Successfully connected to host\n");
+
+    return sockfd;
 }
