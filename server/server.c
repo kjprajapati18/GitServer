@@ -90,6 +90,10 @@ void* destroy(void* arg){
     pthread_mutex_init(&alock, NULL);
     int socket = *((int*) arg);
     int bytes = readSizeClient(socket);
+    char projName[bytes + 1];
+    projName[bytes] = '\0';
+    read(socket, projName, bytes);
+    //now projName has the string name of the file to destroy
     
 }
 

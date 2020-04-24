@@ -120,6 +120,7 @@ int main(int argc, char* argv[]){
             printf("push\n");
             break;
         case create:
+        //add string to sprintf
             //performCreate(socket, argv);
             {int nameSize;
             nameSize = strlen(argv[2]);
@@ -131,11 +132,14 @@ int main(int argc, char* argv[]){
             printf("%s\n", buffer);
             printf("create\n");
             break;}
-        case destroy: 
+        case destroy:{
             read(sockfd, buffer, 32);
             printf("%s\n", buffer);
             write(sockfd, argv[1], sizeof(argv[1]));
-            break;
+            char sendFile[11+strlen(argv[2])];
+            sprintf(sendFile, "%d:%s", strlen(argv[2]), argv[2]);
+            write(sockfd, sendFile, sizeof(sendFile));
+            break; }
         case add: 
             read(sockfd, buffer, 32);
             printf("%s\n", buffer);
