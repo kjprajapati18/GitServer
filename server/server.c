@@ -104,6 +104,7 @@ void* destroy(void* arg){
         return NULL;
     }
     else{
+        //destroy files and send success msg
         write(socket, "Successfully destroyed project\0\0\0\0\0\0", 37);
     }
 
