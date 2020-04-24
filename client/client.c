@@ -87,62 +87,62 @@ int main(int argc, char* argv[]){
     //write(sockfd, argv[1], strlen(argv[1]));
     switch(mode){
         case checkout:
-            bytes = read(sockfd, buffer, 255);
+            bytes = read(sockfd, buffer, 32);
             printf("%s\n", buffer);
             printf("checkout\n");
             break;
         case update: 
-            read(sockfd, buffer, 255);
+            read(sockfd, buffer, 32);
             printf("%s\n", buffer);            
             printf("update\n");
             break; 
         case upgrade: 
-            read(sockfd, buffer, 255);
+            read(sockfd, buffer, 32);
             printf("%s\n", buffer);
             printf("upgrade\n");
             break;
         case commit: 
-            read(sockfd, buffer, 255);
+            read(sockfd, buffer, 32);
             printf("%s\n", buffer);
             printf("commit\n");
             break;
         case push: 
-            read(sockfd, buffer, 255);
+            read(sockfd, buffer, 32);
             printf("%s\n", buffer);
             printf("push\n");
             break;
         case create: 
-            read(sockfd, buffer, 255);
+            read(sockfd, buffer, 32);
             printf("%s\n", buffer);
             printf("create\n");
             break;
         case destroy: 
-            read(sockfd, buffer, 255);
+            read(sockfd, buffer, 32);
             printf("%s\n", buffer);
-            printf("destroy\n");
+            write(sockfd, argv[1], sizeof(argv[1]));
             break;
         case add: 
-            read(sockfd, buffer, 255);
+            read(sockfd, buffer, 32);
             printf("%s\n", buffer);
             printf("add\n");
             break;
         case rmv: 
-            read(sockfd, buffer, 255);
+            read(sockfd, buffer, 32);
             printf("%s\n", buffer);
             printf("remove\n");
             break;
         case currentversion: 
-            read(sockfd, buffer, 255);
+            read(sockfd, buffer, 32);
             printf("%s\n", buffer);
             printf("currentversion\n");
             break;
         case history: 
-            read(sockfd, buffer, 255);
+            read(sockfd, buffer, 32);
             printf("%s\n", buffer);
             printf("history\n");
             break;
         case rollback: 
-            read(sockfd, buffer, 255);
+            read(sockfd, buffer, 32);
             printf("%s\n", buffer);
             printf("rollback\n");
             break;

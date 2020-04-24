@@ -70,10 +70,11 @@ int main(int argc, char* argv[]){
         }
         printf("server accepted client\n");
 
-        //bytes = write(newsockfd, "You are connected to the server", 32);
-        //if(bytes < 0) printf("Could not write to client");
-        //bytes = read(newsockfd, cmd, sizeof(cmd));
-        //printf("Chosen Command: %s\n", cmd);
+        bytes = write(newsockfd, "You are connected to the server", 32);
+        if(bytes < 0) error("Could not write to client");
+        bytes = read(newsockfd, cmd, sizeof(cmd));
+        if (bytes < 0) error("Coult not read from client");
+        printf("Chosen Command: %s\n", cmd);
         //thread part  //chatting between client and server
         pthread_t thread_id;
         if(pthread_create(&thread_id, NULL, chatFunc, &newsockfd) != 0){
