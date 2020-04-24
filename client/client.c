@@ -255,5 +255,7 @@ command argCheck(char* arg){
     else if(strcmp(arg, "currentversion") == 0) mode = currentversion;
     else if(strcmp(arg, "history") == 0) mode = history;
     else if(strcmp(arg, "rollback") == 0) mode = rollback;
+    else mode = -1;
+    
     return mode;
 }
