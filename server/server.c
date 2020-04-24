@@ -13,7 +13,7 @@
 pthread_mutex_t alock; 
 void* chatFunc(void*);
 void error(char*);
-
+int readClient(int socket, char** buffer);
 
 int main(int argc, char* argv[]){
     int sockfd;
@@ -58,7 +58,7 @@ int main(int argc, char* argv[]){
     }
     else printf("server listening\n");
 
-    char cmd[15];
+    //char cmd[15];
     clilen = sizeof(cliaddr);
     while(1){
         //accept packets from clients
@@ -69,10 +69,10 @@ int main(int argc, char* argv[]){
         }
         printf("server accepted client\n");
 
-        bytes = write(newsockfd, "You are connected to the server", 32);
-        if(bytes < 0) printf("Could not write to client");
-        bytes = read(newsockfd, cmd, sizeof(cmd));
-        printf("Chosen Command: %s\n", cmd);
+        //bytes = write(newsockfd, "You are connected to the server", 32);
+        //if(bytes < 0) printf("Could not write to client");
+        //bytes = read(newsockfd, cmd, sizeof(cmd));
+        //printf("Chosen Command: %s\n", cmd);
         //thread part  //chatting between client and server
         pthread_t thread_id;
         if(pthread_create(&thread_id, NULL, chatFunc, &newsockfd) != 0){
@@ -86,12 +86,34 @@ int main(int argc, char* argv[]){
 
 void *chatFunc(void* arg){
     pthread_mutex_init(&alock, NULL);
+    int socket = *((int*) arg);
+    char* cmd = malloc(16*sizeof(char));
+    printf("yea\n");
+    readClient(socket, &cmd);
+
+    //bytes = read(newsockfd, cmd, sizeof(cmd));
+    printf("Chosen Command: %s\n", cmd);
+    if(strcmp("create", cmd) == 0){
+        printf("Succesful create message received\n");
+        //createProject(socket);
+    }
     //int newsockfd = *(int*)arg;
     //int bytes;
     
     //pthread_mutex_lock(&alock);
     //pthread_mutex_unlock(&alock);
     //close(newsockfd);
+    free(cmd);
+}
+
+int readClient(int socket, char** buffer){
+    int status = 0, bytesRead = 0;
+    do{
+        status = read(socket, *buffer+bytesRead, 1);
+        bytesRead += status;
+    }while(status > 0 && (*buffer)[bytesRead-1] != ':');
+    (*buffer)[bytesRead-1] = '\0';
+    return 0;
 }
 
 void error(char* msg){

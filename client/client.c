@@ -15,14 +15,15 @@ void error(char* msg){
 }
 
 typedef enum command{
-    checkout, update, upgrade, commit, push, create, destroy, add, rmv, currentversion, history, rollback
+    ERROR, checkout, update, upgrade, commit, push, create, destroy, add, rmv, currentversion, history, rollback
 } command;
 
 void writeConfigureFile(char* IP, char* port);
+void sendServerCommand(int socket, char* command, int comLen);
 char* getConfigInfo(int config, int* port);
 int writeString(int fd, char* string);
 //int connectToServer(char* ipAddr, int port);
-command argCheck(char* arg);
+command argCheck(int argc, char* arg);
 
 int main(int argc, char* argv[]){
     //int sockfd;
@@ -54,7 +55,8 @@ int main(int argc, char* argv[]){
     else printf("successfully opened socket\n");
 
     server = gethostbyname(ipAddr);
-    
+    free(ipAddr); //No longer needed
+
     if (server == NULL){
         printf("Fatal Error: Cannot get host. Is the given IP/host correct?\n");
         exit(0);
@@ -74,7 +76,14 @@ int main(int argc, char* argv[]){
 
 
     //figure out what command to operate
-    command mode = argCheck(argv[1]);
+    command mode = argCheck(argc, argv[1]);
+    if(mode == ERROR){
+        close(sockfd);
+        return -1;
+    }
+    
+    sendServerCommand(sockfd, argv[1], strlen(argv[1]));
+    //write(sockfd, argv[1], strlen(argv[1]));
     switch(mode){
         case checkout:
             bytes = read(sockfd, buffer, 255);
@@ -139,10 +148,20 @@ int main(int argc, char* argv[]){
         default:
             break;
     }
-    write(sockfd, argv[1], strlen(argv[1]));
     return 0;
 
 
+}
+
+void sendServerCommand(int socket, char* command, int comLen){
+
+    int newLen = comLen+2;
+    char sending[newLen];
+    sending[0] = '\0';
+    strcpy(sending, command);
+    sending[newLen-2] = ':';
+    sending[newLen-1] = '\0';
+    write(socket, sending, newLen);
 }
 
 void writeConfigureFile(char* IP, char* port){
@@ -242,13 +261,16 @@ int writeString(int fd, char* string){
     printf("successfully connected to host\n");
 }*/
 
-command argCheck(char* arg){
+command argCheck(int argc, char* arg){
     command mode;
     if(strcmp(arg, "checkout") == 0) mode = checkout;
     else if(strcmp(arg, "update") == 0) mode = update;
     else if(strcmp(arg, "upgrade") == 0) mode = upgrade;
     else if(strcmp(arg, "commit") == 0) mode = commit;
-    else if(strcmp(arg, "create") == 0) mode = create;
+    else if(strcmp(arg, "create") == 0){
+        if(argc == 3) mode = create;
+        else printf("Fatal Error: create requires only 1 argument (project name)\n");
+    }
     else if(strcmp(arg, "destroy") == 0) mode = destroy;
     else if(strcmp(arg, "add") == 0) mode = add;
     else if(strcmp(arg, "remove") == 0) mode = rmv;
