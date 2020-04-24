@@ -124,7 +124,7 @@ int main(int argc, char* argv[]){
             {int nameSize;
             nameSize = strlen(argv[2]);
             char nameSizeStr[11];
-            sprintf(nameSizeStr, "%d:", nameSize);
+            sprintf(nameSizeStr, "%d", nameSize);
             sendServerCommand(sockfd, nameSizeStr, strlen(nameSizeStr)); 
             sendServerCommand(sockfd, argv[2], strlen(argv[2]));
             read(sockfd, buffer, 255);
@@ -171,13 +171,9 @@ int main(int argc, char* argv[]){
 
 void sendServerCommand(int socket, char* command, int comLen){
 
-    int newLen = comLen+2;
-    char sending[newLen];
-    sending[0] = '\0';
-    strcpy(sending, command);
-    sending[newLen-2] = ':';
-    sending[newLen-1] = '\0';
-    write(socket, sending, newLen);
+    command[comLen] = ':';
+    write(socket, command, comLen+1);
+    command[comLen] = '\0';
 }
 
 void writeConfigureFile(char* IP, char* port){

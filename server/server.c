@@ -97,16 +97,11 @@ void *chatFunc(void* arg){
     //bytes = read(newsockfd, cmd, sizeof(cmd));
     printf("Chosen Command: %s\n", cmd);
     if(strcmp("create", cmd) == 0){
-        
+
         printf("Succesful create message received\n");
         //write(socket, "completed", 10);
-        printf("1\n");
-        int size2222 = readSizeClient(socket);
-        printf("2\n");
-        char* projectName = readNClient(socket, size2222);
-        printf("3\n");
+        char* projectName = readNClient(socket, readSizeClient(socket));
         int creation = createProject(socket, projectName);
-        printf("4\n");
         free(projectName);
     }
     //int newsockfd = *(int*)arg;
