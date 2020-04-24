@@ -99,7 +99,7 @@ void *chatFunc(void* arg){
         
         printf("Succesful create message received\n");
         //write(socket, "completed", 10);
-        int creation = createProject(socket);
+        int creation = createProject(socket, "sdf");
     }
     //int newsockfd = *(int*)arg;
     //int bytes;
@@ -133,13 +133,13 @@ int readSizeClient(int socket){
 
 char* readNClient(int socket, int size){
     char* buffer = malloc(sizeof(char) * (size+1));
-    read(socket, *buffer, size);
+    read(socket, buffer, size);
     buffer[size] = '\0';
     return 0;
 }
 
-int createProject(int socket){
-
+int createProject(int socket, char* name){
+    return 0;
 }
 
 void error(char* msg){
