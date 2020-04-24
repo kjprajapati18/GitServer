@@ -83,6 +83,7 @@ int main(int argc, char* argv[]){
     }
     
     sendServerCommand(sockfd, argv[1], strlen(argv[1]));
+    sendServerCommand(sockfd, argv[2], strlen(argv[2]));
     //write(sockfd, argv[1], strlen(argv[1]));
     switch(mode){
         case checkout:

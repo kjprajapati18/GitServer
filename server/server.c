@@ -14,6 +14,7 @@ pthread_mutex_t alock;
 void* chatFunc(void*);
 void error(char*);
 int readClient(int socket, char** buffer);
+int createProject(int socket, char* name);
 
 int main(int argc, char* argv[]){
     int sockfd;
@@ -94,6 +95,7 @@ void *chatFunc(void* arg){
     //bytes = read(newsockfd, cmd, sizeof(cmd));
     printf("Chosen Command: %s\n", cmd);
     if(strcmp("create", cmd) == 0){
+        
         printf("Succesful create message received\n");
         write(socket, "completed", 10);
         //createProject(socket);
@@ -116,6 +118,8 @@ int readClient(int socket, char** buffer){
     (*buffer)[bytesRead-1] = '\0';
     return 0;
 }
+
+
 
 void error(char* msg){
     perror(msg);
