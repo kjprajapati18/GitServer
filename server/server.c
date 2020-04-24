@@ -71,11 +71,11 @@ int main(int argc, char* argv[]){
         }
         printf("server accepted client\n");
 
-        bytes = write(newsockfd, "You are connected to the server", 32);
+        /*bytes = write(newsockfd, "You are connected to the server", 32);
         if(bytes < 0) error("Could not write to client");
         bytes = read(newsockfd, cmd, sizeof(cmd));
         if (bytes < 0) error("Coult not read from client");
-        printf("Chosen Command: %s\n", cmd);
+        printf("Chosen Command: %s\n", cmd);*/
         //thread part  //chatting between client and server
         pthread_t thread_id;
         if(pthread_create(&thread_id, NULL, chatFunc, &newsockfd) != 0){
@@ -100,7 +100,14 @@ void *chatFunc(void* arg){
         
         printf("Succesful create message received\n");
         //write(socket, "completed", 10);
-        int creation = createProject(socket, "sdf");
+        printf("1\n");
+        int size2222 = readSizeClient(socket);
+        printf("2\n");
+        char* projectName = readNClient(socket, size2222);
+        printf("3\n");
+        int creation = createProject(socket, projectName);
+        printf("4\n");
+        free(projectName);
     }
     //int newsockfd = *(int*)arg;
     //int bytes;
@@ -136,10 +143,11 @@ char* readNClient(int socket, int size){
     char* buffer = malloc(sizeof(char) * (size+1));
     read(socket, buffer, size);
     buffer[size] = '\0';
-    return 0;
+    return buffer;
 }
 
 int createProject(int socket, char* name){
+    printf("%s\n", name);
     return 0;
 }
 

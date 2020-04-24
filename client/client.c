@@ -29,6 +29,7 @@ int writeString(int fd, char* string);
 
 char* readNServer(int socket, int size);
 int readSizeServer(int socket);
+int performCreate(int socket, char** argv);
 
 //int connectToServer(char* ipAddr, int port);
 command argCheck(int argc, char* arg);
@@ -118,12 +119,18 @@ int main(int argc, char* argv[]){
             printf("%s\n", buffer);
             printf("push\n");
             break;
-        case create: 
+        case create:
+            //performCreate(socket, argv);
+            {int nameSize;
+            nameSize = strlen(argv[2]);
+            char nameSizeStr[11];
+            sprintf(nameSizeStr, "%d:", nameSize);
+            sendServerCommand(sockfd, nameSizeStr, strlen(nameSizeStr)); 
             sendServerCommand(sockfd, argv[2], strlen(argv[2]));
             read(sockfd, buffer, 255);
             printf("%s\n", buffer);
             printf("create\n");
-            break;
+            break;}
         case destroy: 
             read(sockfd, buffer, 32);
             printf("%s\n", buffer);
@@ -306,5 +313,9 @@ char* readNServer(int socket, int size){
     char* buffer = malloc(sizeof(char) * (size+1));
     read(socket, buffer, size);
     buffer[size] = '\0';
-    return 0;
+    return buffer;
+}
+
+int performCreate(int socket, char** argv){
+
 }
