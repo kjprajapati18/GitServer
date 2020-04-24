@@ -13,8 +13,9 @@
 pthread_mutex_t alock; 
 void* chatFunc(void*);
 void error(char*);
-int readClient(int socket, char** buffer);
+int readCommand(int socket, char** buffer);
 int createProject(int socket, char* name);
+char* readNClient(int socket, int size);
 
 int main(int argc, char* argv[]){
     int sockfd;
@@ -91,15 +92,15 @@ void *chatFunc(void* arg){
     int socket = *((int*) arg);
     char* cmd = malloc(16*sizeof(char));
     printf("yea\n");
-    readClient(socket, &cmd);
+    readCommand(socket, &cmd);
 
     //bytes = read(newsockfd, cmd, sizeof(cmd));
     printf("Chosen Command: %s\n", cmd);
     if(strcmp("create", cmd) == 0){
         
         printf("Succesful create message received\n");
-        write(socket, "completed", 10);
-        //createProject(socket);
+        //write(socket, "completed", 10);
+        int creation = createProject(socket, "sdf");
     }
     //int newsockfd = *(int*)arg;
     //int bytes;
@@ -110,7 +111,7 @@ void *chatFunc(void* arg){
     free(cmd);
 }
 
-int readClient(int socket, char** buffer){
+int readCommand(int socket, char** buffer){
     int status = 0, bytesRead = 0;
     do{
         status = read(socket, *buffer+bytesRead, 1);
@@ -120,7 +121,27 @@ int readClient(int socket, char** buffer){
     return 0;
 }
 
+int readSizeClient(int socket){
+    int status = 0, bytesRead = 0;
+    char buffer[11];
+    do{
+        status = read(socket, buffer+bytesRead, 1);
+        bytesRead += status;
+    }while(status > 0 && buffer[bytesRead-1] != ':');
+    buffer[bytesRead-1] = '\0';
+    return atoi(buffer);
+}
 
+char* readNClient(int socket, int size){
+    char* buffer = malloc(sizeof(char) * (size+1));
+    read(socket, buffer, size);
+    buffer[size] = '\0';
+    return 0;
+}
+
+int createProject(int socket, char* name){
+    return 0;
+}
 
 void error(char* msg){
     perror(msg);
