@@ -9,6 +9,10 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+/* TODO LIST:::
+    Move read commands to a separate file, since they are exactly the same.
+*/
+
 void error(char* msg){
     perror(msg);
     exit(1);
@@ -22,6 +26,10 @@ void writeConfigureFile(char* IP, char* port);
 void sendServerCommand(int socket, char* command, int comLen);
 char* getConfigInfo(int config, int* port);
 int writeString(int fd, char* string);
+
+char* readNServer(int socket, int size);
+int readSizeServer(int socket);
+
 //int connectToServer(char* ipAddr, int port);
 command argCheck(int argc, char* arg);
 
@@ -281,4 +289,22 @@ command argCheck(int argc, char* arg){
     else mode = -1;
     
     return mode;
+}
+
+int readSizeServer(int socket){
+    int status = 0, bytesRead = 0;
+    char buffer[11];
+    do{
+        status = read(socket, buffer+bytesRead, 1);
+        bytesRead += status;
+    }while(status > 0 && buffer[bytesRead-1] != ':');
+    buffer[bytesRead-1] = '\0';
+    return atoi(buffer);
+}
+
+char* readNServer(int socket, int size){
+    char* buffer = malloc(sizeof(char) * (size+1));
+    read(socket, buffer, size);
+    buffer[size] = '\0';
+    return 0;
 }
