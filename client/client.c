@@ -13,10 +13,16 @@ void error(char* msg){
     printf("%s", msg);
     exit(1);
 }
+
 void writeConfigureFile(char* IP, char* port);
 void getConfigInfo(int config, char** ipAddr, int* port);
 int writeString(int fd, char* string);
 int connectToServer();
+command argCheck(char* arg);
+
+typdef enum command{
+    checkout, update, upgrade, commit, push, create, destroy, add, remove, currentversion, history, rollback
+} command;
 
 int main(int argc, char* argv[]){
     int sockfd;
@@ -40,12 +46,42 @@ int main(int argc, char* argv[]){
     }
 
     int configureFile = open(".configure", O_RDONLY);
-    if(configureFile < 0) error("Fatal Error: There is no configure file. Please use ./WTFclient configure <IP/host> <Port>\n");
+    if(configureFile < 0) error("Fatal Error: There is no configure file. Please use ./WTF configure <IP/host> <Port>\n");
     getConfigInfo(configureFile, &ipAddr, &port);
     close(configureFile);
 
     sockfd = connectToServer(configureFile);
     close(configureFile);
+
+    command mode = argCheck(argv[1]);
+    switch(mode){
+        case checkout: printf("checkout\n");
+            break;
+        case update: printf("update\n");
+            break; 
+        case upgrade: printf("upgrade\n");
+            break;
+        case commit: printf("commit\n");
+            break;
+        case push: printf("push\n");
+            break;
+        case create: printf("create\n");
+            break;
+        case destroy: printf("destroy\n");
+            break;
+        case add: printf("add\n");
+            break;
+        case remove: printf("remove\n");
+            break;
+        case currentversion: printf("currentversion\n");
+            break;
+        case history: printf("history\n");
+            break;
+        case rollback: printf("rollback\n");
+            break;
+        default:
+            break;
+    }
 
 /*
     port = atoi(argv[2]);
@@ -74,7 +110,7 @@ int main(int argc, char* argv[]){
     }
     else printf("successfully connected to host\n");
 */
-    printf("Please enter the filename to send: \n");
+ /*   printf("Please enter the filename to send: \n");
     bzero(buffer, 256);
     fgets(buffer, 255, stdin);
     bytes = write(sockfd, buffer, strlen(buffer));
@@ -96,7 +132,7 @@ int main(int argc, char* argv[]){
         printf("error reading from socket\n");
         exit(0);
     }
-    printf("Received string: %s\n", buffer);
+    printf("Received string: %s\n", buffer);*/
     return 0;
 
 
@@ -193,4 +229,20 @@ int connectToServer(){
         error("error connecting to host\n");
     }
     else printf("successfully connected to host\n");
+}
+
+command argCheck(char* arg){
+    command mode;
+    if(strcmp(arg, "checkout") == 0) mode = checkout;
+    else if(strcmp(arg, "update") == 0) mode = update;
+    else if(strcmp(arg, "upgrade") == 0) mode = upgrade;
+    else if(strcmp(arg, "commit") == 0) mode = commit;
+    else if(strcmp(arg, "create") == 0) mode = create;
+    else if(strcmp(arg, "destroy") == 0) mode = destroy;
+    else if(strcmp(arg, "add") == 0) mode = add;
+    else if(strcmp(arg, "remove") == 0) mode = remove;
+    else if(strcmp(arg, "currentversion") == 0) mode = currentversion;
+    else if(strcmp(arg, "history") == 0) mode = history;
+    else if(strcmp(arg, "rollback") == 0) mode = rollback;
+    return mode;
 }
