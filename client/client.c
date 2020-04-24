@@ -91,10 +91,11 @@ int main(int argc, char* argv[]){
         return -1;
     }
     
+    char cmd[15]; bzero(cmd, 15);
     read(sockfd, buffer, 32);
     printf("%s\n", buffer);
-    write(sockfd, argv[1], strlen(argv[1]));
-    char cmd[15]; bzero(cmd, 15);
+    strncpy(cmd, argv[1], strlen(argv[1]));
+    write(sockfd, cmd, 15);
     //write(sockfd, argv[1], strlen(argv[1]));
     switch(mode){
         case checkout:
@@ -122,7 +123,7 @@ int main(int argc, char* argv[]){
             printf("%s\n", buffer);
             printf("push\n");
             break;
-        case create:
+        case create:{
         //add string to sprintf
             //performCreate(socket, argv);
             int nameSize = strlen(argv[2])
@@ -134,10 +135,6 @@ int main(int argc, char* argv[]){
             printf("create\n");
             break;}
         case destroy:{
-            read(sockfd, buffer, 32);
-            printf("%s\n", buffer);
-            strncpy(cmd, argv[1], strlen(argv[1]));
-            write(sockfd, cmd, 15);
             char sendFile[12+strlen(argv[2])];
             sprintf(sendFile, "%d:%s", strlen(argv[2]), argv[2]);
             write(sockfd, sendFile, strlen(sendFile));
