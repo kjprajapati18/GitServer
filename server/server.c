@@ -95,6 +95,7 @@ void *chatFunc(void* arg){
     printf("Chosen Command: %s\n", cmd);
     if(strcmp("create", cmd) == 0){
         printf("Succesful create message received\n");
+        write(socket, "completed", 10);
         //createProject(socket);
     }
     //int newsockfd = *(int*)arg;
@@ -102,7 +103,7 @@ void *chatFunc(void* arg){
     
     //pthread_mutex_lock(&alock);
     //pthread_mutex_unlock(&alock);
-    //close(newsockfd);
+    close(socket);
     free(cmd);
 }
 
