@@ -9,26 +9,16 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include "../sharedFunctions.h"
 /* TODO LIST:::
     Move read commands to a separate file, since they are exactly the same.
 */
-
-void error(char* msg){
-    perror(msg);
-    exit(1);
-}
-
-typedef enum command{
-    ERROR, checkout, update, upgrade, commit, push, create, destroy, add, rmv, currentversion, history, rollback
-} command;
 
 void writeConfigureFile(char* IP, char* port);
 void sendServerCommand(int socket, char* command, int comLen);
 char* getConfigInfo(int config, int* port);
 int writeString(int fd, char* string);
 
-char* readNServer(int socket, int size);
-int readSizeServer(int socket);
 int performCreate(int socket, char** argv);
 
 //int connectToServer(char* ipAddr, int port);
@@ -116,13 +106,30 @@ int main(int argc, char* argv[]){
         case create:{
         //add string to sprintf
             //performCreate(socket, argv);
-            int nameSize = strlen(argv[2])
+            int nameSize = strlen(argv[2]);
             char sendFile[11+nameSize];
-            sprintf(sendFile, "%d:%s:", nameSize, argv[2]);
+            sprintf(sendFile, "%d:%s:", nameSize+1, argv[2]);
             write(sockfd, sendFile, strlen(sendFile)); 
-            read(sockfd, buffer, 255);
+            read(sockfd, buffer, 5); //Waiting for either fail: or succ:
+            buffer[5] = '\0';       //Make it a string
             printf("%s\n", buffer);
-            printf("create\n");
+            
+            if(strcmp(buffer, "succ:") == 0){
+                printf("%s was created on server!\n", argv[2]);
+                mkdir(argv[2], 00700);
+                sprintf(sendFile, "%s/%s", argv[2], ".Manifest"); //sendFile now has path since it has enough space
+                remove(sendFile); //There shouldn't be one anyways
+                int output = open(sendFile, O_CREAT | O_WRONLY, 00600);
+                if(output < 0){
+                    printf("Fatal Error: Cannot create local .Manifest file. Server still retains copy\n");
+                }else{
+                    write(output, "1", 1);
+                    printf("Project successfully created locally!\n");
+                }
+            } else {
+                printf("Fatal Error: Server was unable to create this project. The project may already exist\n");
+            }
+
             break;}
         case destroy:{
             char sendFile[12+strlen(argv[2])];
@@ -296,13 +303,6 @@ int readSizeServer(int socket){
     }while(status > 0 && buffer[bytesRead-1] != ':');
     buffer[bytesRead-1] = '\0';
     return atoi(buffer);
-}
-
-char* readNServer(int socket, int size){
-    char* buffer = malloc(sizeof(char) * (size+1));
-    read(socket, buffer, size);
-    buffer[size] = '\0';
-    return buffer;
 }
 
 int performCreate(int socket, char** argv){

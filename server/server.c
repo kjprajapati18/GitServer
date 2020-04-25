@@ -11,13 +11,14 @@
 #include <pthread.h>
 #include <dirent.h>
 
+#include "../sharedFunctions.h"
+
 pthread_mutex_t alock; 
-void* chatFunc(void*);
-void error(char*);
+void* performCreate(void*);
 int readCommand(int socket, char** buffer);
 int createProject(int socket, char* name);
-char* readNClient(int socket, int size);
-void* destroy(void*);
+//char* readNClient(int socket, int size);
+void* performDestroy(void*);
 
 int main(int argc, char* argv[]){
     int sockfd;
@@ -65,6 +66,7 @@ int main(int argc, char* argv[]){
     clilen = sizeof(cliaddr);
     while(1){
         //accept packets from clients
+        printf("Waiting for connect...\n");
         newsockfd = accept(sockfd, (struct sockaddr*) &cliaddr, &clilen);
         if(newsockfd < 0){
             printf("server could not accept a client\n");
@@ -75,14 +77,17 @@ int main(int argc, char* argv[]){
         bzero(cmd, 3);
         bytes = write(newsockfd, "You are connected to the server", 32);
         if(bytes < 0) error("Could not write to client");
+
+        printf("Waiting for command..\n");
         bytes = read(newsockfd, cmd, 3);
+        
         if (bytes < 0) error("Coult not read from client");
-        printf("Chosen Command: %d\n", cmd);
         int mode = atoi(cmd);
+        printf("Chosen Command: %d\n", mode);
         //switch case on mode corresponding to the enum in client.c. make thread for each function.
         //thread part  //chatting between client and server
         pthread_t thread_id;
-        if(pthread_create(&thread_id, NULL, chatFunc, &newsockfd) != 0){
+        if(pthread_create(&thread_id, NULL, performCreate, &newsockfd) != 0){
             error("thread creation error");
         }
     }
@@ -156,30 +161,23 @@ char* messageHandler(char* msg){
     return returnMessage;
 }*/
 
-void *chatFunc(void* arg){
+void* performCreate(void* arg){
     pthread_mutex_init(&alock, NULL);
     int socket = *((int*) arg);
-    char* cmd = malloc(16*sizeof(char));
-    printf("yea\n");
-    readCommand(socket, &cmd);
 
-    //bytes = read(newsockfd, cmd, sizeof(cmd));
-    printf("Chosen Command: %s\n", cmd);
-    if(strcmp("create", cmd) == 0){
-
-        printf("Succesful create message received\n");
-        //write(socket, "completed", 10);
-        char* projectName = readNClient(socket, readSizeClient(socket));
-        int creation = createProject(socket, projectName);
-        free(projectName);
-    }
-    //int newsockfd = *(int*)arg;
-    //int bytes;
+    printf("Succesful create message received\n");
     
-    //pthread_mutex_lock(&alock);
-    //pthread_mutex_unlock(&alock);
+    //write(socket, "completed", 10);
+    printf("Attempting to read project name...\n");
+    char* projectName = readNClient(socket, readSizeClient(socket));
+    int creation = createProject(socket, projectName);
+    free(projectName);
+    
+    if(creation < 0){
+        write(socket, "fail:", 5);
+    }
+
     close(socket);
-    free(cmd);
 }
 
 int readCommand(int socket, char** buffer){
@@ -192,7 +190,7 @@ int readCommand(int socket, char** buffer){
     return 0;
 }
 
-int readSizeClient(int socket){
+/*int readSizeClient(int socket){
     int status = 0, bytesRead = 0;
     char buffer[11];
     do{
@@ -208,14 +206,35 @@ char* readNClient(int socket, int size){
     read(socket, buffer, size);
     buffer[size] = '\0';
     return buffer;
-}
+}*/
 
 int createProject(int socket, char* name){
     printf("%s\n", name);
+    char manifestPath[11+strlen(name)];
+    sprintf(manifestPath, "%s/%s", name, ".Manifest");
+    /*manifestPath[0] = '\0';
+    strcpy(manifestPath, name);
+    strcat(manifestPath, "/.Manifest");*/
+    int manifest = open(manifestPath, O_WRONLY);    //This first open is a test to see if the project already exists
+    if(manifest > 0){
+        close(manifest);
+        printf("Error: Client attempted to create an already existing project. Nothing changed\n");
+        return -1;
+    }
+    printf("%s\n", manifestPath);
+    int folder = mkdir(name, 0777);
+    if(folder < 0){
+        //I don't know what we sohuld do in this situation. For now just error
+        printf("Error: Could not create project folder.. Nothing created\n");
+        return -2;
+    }
+    manifest = open(manifestPath, O_WRONLY | O_CREAT, 00600);
+    if(manifest < 0){
+        printf("Error: Could not create .Manifest file. Nothing created\n");
+        return -2;
+    }
+    write(manifest, "1", 1);
+    printf("Succesful server-side project creation. Notifying Client\n");
+    write(socket, "succ:", 5);
     return 0;
-}
-
-void error(char* msg){
-    perror(msg);
-    exit(1);
 }
