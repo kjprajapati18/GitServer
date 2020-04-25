@@ -1,5 +1,5 @@
 all: sharedFunctions.o
-	gcc -o client/WTF client/client.c sharedFunctions.o
+	gcc -o client/WTF client/client.c sharedFunctions.o -lssl -lcrypto
 	gcc -o server/WTFserver server/server.c sharedFunctions.o -pthread
 
 sharedFunctions.o: sharedFunctions.c

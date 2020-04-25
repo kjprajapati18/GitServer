@@ -8,6 +8,9 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <openssl/md5.h>
+#include <dirent.h>
+
 
 #include "../sharedFunctions.h"
 /* TODO LIST:::
@@ -18,6 +21,7 @@ void writeConfigureFile(char* IP, char* port);
 void sendServerCommand(int socket, char* command, int comLen);
 char* getConfigInfo(int config, int* port);
 int writeString(int fd, char* string);
+char* hash(char* path);
 
 int performCreate(int socket, char** argv);
 
@@ -115,10 +119,10 @@ int main(int argc, char* argv[]){
             printf("%d\n", bytes);
             read(sockfd, returnMsg, bytes);
             printf("%s\n", returnMsg);
+            printf("%s\n", hash("hashtest.txt"));
             break;}
         case add: 
-            read(sockfd, buffer, 32);
-            printf("%s\n", buffer);
+            performAdd(argv);
             printf("add\n");
             break;
         case rmv: 
@@ -145,6 +149,19 @@ int main(int argc, char* argv[]){
             break;
     }
     return 0;
+}
+
+int performAdd(char** argv){
+    DIR* d = opendir(argv[1]);
+    char* path = (char*) malloc(strlen(argv[1]) + 2 + argv[2]);
+    if(!d){
+        printf("Project does not exist locally. Cannot execute command.");
+        return 0;
+    }
+    else{
+        sprintf(path, "%s/%s", argv[1], argv[2]);
+        int fd = open(path, O_WRONLY, O_APPEND;
+    }
 }
 
 void sendServerCommand(int socket, char* command, int comLen){
@@ -221,35 +238,6 @@ int writeString(int fd, char* string){
     return 0;
 }
 
-/*int connectToServer(char* ipAddr, int port){
-    struct sockaddr_in servaddr;
-    struct hostent *server;
-
-    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if(sockfd == -1){
-        error("error opening socket");
-    }
-    else printf("successfully opened socket\n");
-
-    server = gethostbyname(ipAddr);
-    
-    if (server == NULL){
-        printf("Fatal Error: Cannot get host. Is the given IP/host correct?\n");
-        exit(0);
-    }
-    else printf("successfully found host\n");
-
-    bzero(&servaddr, sizeof(servaddr));
-    servaddr.sin_family = AF_INET;
-    bcopy((char *)server->h_addr, (char *)&servaddr.sin_addr.s_addr, server->h_length);
-    //servaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
-    servaddr.sin_port = htons(port);
-    while(connect(sockfd, (struct sockaddr*) &servaddr, sizeof(servaddr)) != 0){
-        printf("Error: Could not connect to server. Retrying in 3 seconds...\n");
-        sleep(3);
-    }
-    printf("successfully connected to host\n");
-}*/
 
 command argCheck(int argc, char* arg){
     command mode;
@@ -308,4 +296,32 @@ int performCreate(int sockfd, char** argv){
         printf("Fatal Error: Server was unable to create this project. The project may already exist\n");
     }
     return 0;
+}
+
+char* hash(char* path){
+    unsigned char c[MD5_DIGEST_LENGTH];
+    int fd = open(path, O_RDONLY);
+    MD5_CTX mdContext;
+    int bytes;
+    unsigned char buffer[256];
+    if(fd < 0){
+        error("cannot open file");
+    }
+    MD5_Init(&mdContext);
+    do{
+        bzero(buffer, 256);
+        bytes = read(fd, buffer, 256);
+        MD5_Update (&mdContext, buffer, bytes);
+    }while(bytes > 0);
+    MD5_Final(c, &mdContext);
+    close(fd);
+    int i;
+    char* hash = (char*) malloc(32); bzero(hash, 32);
+    char buf[3];
+    for(i = 0; i < MD5_DIGEST_LENGTH; i++) {
+        sprintf(buf, "%02x", c[i]);
+        strcat(hash, buf);
+    }
+    return hash;
+
 }
