@@ -151,37 +151,36 @@ void* performDestroy(void* arg){
     read(socket, projName, bytes);
     projName[bytes] = '\0';
     //now projName has the string name of the file to destroy
-    DIR* dir = opendir(projName);
-    if(dir == NULL) {
+    
+    pthread_mutex_lock(&headLock);
+    node* found = findNode(((data*) arg)->head, projName);
+    if(found == NULL) {
+        
         printf("Could not find project with that name to destroy\n");
         char* returnMsg = messageHandler("Could not find project with that name to destroy");
         int bytecheck = write(socket, returnMsg, strlen(returnMsg));
         free(returnMsg);
-        return NULL;
     }
     else{
+        *(found->proj) = '\0';
         //destroy files and send success msg
-        closedir(dir);
         //printLL(((data*) arg)->head);
         //if((((data*) arg)->head) == NULL) printf("IT'S NULL\n");
-        node* found = findNode(((data*) arg)->head, projName);
-        *(found->proj) = '\0';
         
         pthread_mutex_lock(&(found->mutex));
         recDest(projName);
         pthread_mutex_unlock(&(found->mutex));
 
-        pthread_mutex_lock(&headLock);
         ((data*) arg)->head = removeNode(((data*) arg)->head, "");
-        pthread_mutex_unlock(&headLock);
 
         char* returnMsg = messageHandler("Successfully destroyed project");
         printf("Notifying client\n");
         write(socket, returnMsg, strlen(returnMsg));
         free(returnMsg);
         printf("Successfully destroyed %s\n", projName);
-        return NULL;
     }
+    
+    pthread_mutex_unlock(&headLock);
 }
 
 int recDest(char* path){
