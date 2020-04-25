@@ -77,7 +77,10 @@ int main(int argc, char* argv[]){
         bzero(cmd, 3);
         bytes = write(newsockfd, "You are connected to the server", 32);
         if(bytes < 0) error("Could not write to client");
+
+        printf("Waiting for command..\n");
         bytes = read(newsockfd, cmd, 3);
+        
         if (bytes < 0) error("Coult not read from client");
         int mode = atoi(cmd);
         printf("Chosen Command: %d\n", mode);
@@ -120,6 +123,7 @@ void* performCreate(void* arg){
     printf("Succesful create message received\n");
     
     //write(socket, "completed", 10);
+    printf("Attempting to read project name...\n");
     char* projectName = readNClient(socket, readSizeClient(socket));
     int creation = createProject(socket, projectName);
     free(projectName);
@@ -162,21 +166,30 @@ char* readNClient(int socket, int size){
 int createProject(int socket, char* name){
     printf("%s\n", name);
     char manifestPath[11+strlen(name)];
-    manifestPath[0] = '\0';
+    sprintf(manifestPath, "%s/%s", name, ".Manifest");
+    /*manifestPath[0] = '\0';
     strcpy(manifestPath, name);
-    strcat(manifestPath, "/.Manifest");
+    strcat(manifestPath, "/.Manifest");*/
     int manifest = open(manifestPath, O_WRONLY);    //This first open is a test to see if the project already exists
     if(manifest > 0){
         close(manifest);
         printf("Error: Client attempted to create an already existing project. Nothing changed\n");
         return -1;
     }
+    printf("%s\n", manifestPath);
+    int folder = mkdir(name, 0777);
+    if(folder < 0){
+        //I don't know what we sohuld do in this situation. For now just error
+        printf("Error: Could not create project folder.. Nothing created\n");
+        return -2;
+    }
     manifest = open(manifestPath, O_WRONLY | O_CREAT, 00600);
     if(manifest < 0){
         printf("Error: Could not create .Manifest file. Nothing created\n");
         return -2;
     }
-    write(manifest, "yo", 2);
-    printf("Succesful open&write\n");
+    write(manifest, "1", 1);
+    printf("Succesful server-side project creation. Notifying Client\n");
+    write(socket, "succ:", 5);
     return 0;
 }

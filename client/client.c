@@ -110,9 +110,26 @@ int main(int argc, char* argv[]){
             char sendFile[11+nameSize];
             sprintf(sendFile, "%d:%s:", nameSize+1, argv[2]);
             write(sockfd, sendFile, strlen(sendFile)); 
-            //read(sockfd, buffer, 255);
-            //printf("%s\n", buffer);
-            printf("create\n");
+            read(sockfd, buffer, 5); //Waiting for either fail: or succ:
+            buffer[5] = '\0';       //Make it a string
+            printf("%s\n", buffer);
+            
+            if(strcmp(buffer, "succ:") == 0){
+                printf("%s was created on server!\n", argv[2]);
+                mkdir(argv[2], 00700);
+                sprintf(sendFile, "%s/%s", argv[2], ".Manifest"); //sendFile now has path since it has enough space
+                remove(sendFile); //There shouldn't be one anyways
+                int output = open(sendFile, O_CREAT | O_WRONLY, 00600);
+                if(output < 0){
+                    printf("Fatal Error: Cannot create local .Manifest file. Server still retains copy\n");
+                }else{
+                    write(output, "1", 1);
+                    printf("Project successfully created locally!\n");
+                }
+            } else {
+                printf("Fatal Error: Server was unable to create this project. The project may already exist\n");
+            }
+
             break;}
         case destroy:{
             char sendFile[12+strlen(argv[2])];
