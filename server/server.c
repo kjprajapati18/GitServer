@@ -13,12 +13,28 @@
 
 #include "../sharedFunctions.h"
 
-pthread_mutex_t alock; 
+pthread_mutex_t headLock; 
 void* performCreate(void*);
 int readCommand(int socket, char** buffer);
 int createProject(int socket, char* name);
 //char* readNClient(int socket, int size);
 void* performDestroy(void*);
+char* messageHandler(char* msg);
+
+typedef struct _node{
+    char* proj;
+    pthread_mutex_t mutex;
+    struct _node* next;
+}node;
+
+typedef struct _data{
+    node* head;
+    int socketfd;
+} data;
+
+node* addNode(node* head, char* name);
+node* removeNode(node* head, char* name);
+node* findNode(node* head, char* name);
 
 int main(int argc, char* argv[]){
     int sockfd;
@@ -27,6 +43,7 @@ int main(int argc, char* argv[]){
     int servlen;
     int bytes;
     char buffer[256];
+    node* head;              //MAKE A C/H FILE for mutex stuff 
     struct sockaddr_in servaddr;
     struct sockaddr_in cliaddr;
 
@@ -96,7 +113,7 @@ int main(int argc, char* argv[]){
 }
 
 void* performDestroy(void* arg){
-    pthread_mutex_init(&alock, NULL);
+    //pthread_mutex_init(&alock, NULL);
     int socket = *((int*) arg);
     int bytes = readSizeClient(socket);
     char projName[bytes + 1];
@@ -146,11 +163,12 @@ int recDest(char* path){
         }
     }
     rmdir(path);
+    return 0;
 }
 
 char* messageHandler(char* msg){
     int size = strlen(msg);
-    char returnMsg = malloc(12+size); bzero(returnMsg, 12+size);
+    char* returnMsg = (char*) malloc(12+size); bzero(returnMsg, 12+size);
     sprintf(returnMsg, "%d:%s", size, msg);
     return returnMsg;
 }
@@ -162,7 +180,7 @@ char* messageHandler(char* msg){
 }*/
 
 void* performCreate(void* arg){
-    pthread_mutex_init(&alock, NULL);
+    //pthread_mutex_init(&alock, NULL);
     int socket = *((int*) arg);
 
     printf("Succesful create message received\n");
@@ -237,4 +255,56 @@ int createProject(int socket, char* name){
     printf("Succesful server-side project creation. Notifying Client\n");
     write(socket, "succ:", 5);
     return 0;
+}
+
+node* addNode(node* head, char* name){
+    node* newNode = malloc(sizeof(node));
+    newNode->proj = malloc(sizeof(char) * (strlen(name)+1));
+    *(newNode->proj) = '\0';
+    strcpy(newNode->proj, name);
+    pthread_mutex_init(&(newNode->mutex), NULL);
+    newNode->next = NULL;
+
+    node* ptr = head;
+    if(ptr == NULL){
+        return newNode;
+    }
+
+    while(ptr->next != NULL){
+        ptr = ptr->next;
+    }
+    ptr->next = newNode;
+    return head;
+}
+
+node* removeNode(node* head, char* name){
+    node *ptr = head, *prev = NULL;
+    while(ptr != NULL && strcmp(ptr->proj, name)){
+        prev = ptr;
+        ptr = ptr->next;
+    }
+
+    if(ptr == NULL){
+        return NULL;
+    }
+
+    if(prev != NULL){
+        prev->next = ptr->next;
+    } else {
+        head = head->next;
+    }
+
+    free(ptr->proj);
+    pthread_mutex_destroy(&(ptr->mutex));
+    free(ptr);
+
+    return head;
+}
+
+node* findNode(node* head, char* name){
+    node* ptr = head;
+    while(ptr != NULL && strcmp(ptr->proj, name)){
+        ptr = ptr->next;
+    }
+    return ptr;
 }

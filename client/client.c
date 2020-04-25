@@ -112,7 +112,7 @@ int main(int argc, char* argv[]){
             write(sockfd, sendFile, strlen(sendFile)); 
             read(sockfd, buffer, 5); //Waiting for either fail: or succ:
             buffer[5] = '\0';       //Make it a string
-            printf("%s\n", buffer);
+            //printf("%s\n", buffer);
             
             if(strcmp(buffer, "succ:") == 0){
                 printf("%s was created on server!\n", argv[2]);
