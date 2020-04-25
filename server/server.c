@@ -3,6 +3,7 @@
 #include <netdb.h>
 #include <netinet/in.h>
 #include <string.h>
+#include <signal.h> 
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -22,11 +23,24 @@ int createProject(int socket, char* name);
 void* performDestroy(void*);
 char* messageHandler(char* msg);
 
+int killProgram = 0;
+int sockfd;
+
+void interruptHandler(int sig){
+    killProgram = 1;
+    close(sockfd);
+}
+
 typedef struct _node{
     char* proj;
     pthread_mutex_t mutex;
     struct _node* next;
 }node;
+
+typedef struct _node2{
+    pthread_t thread;
+    struct _node2* next;
+}threadList;
 
 typedef struct _data{
     node* head;
@@ -37,17 +51,20 @@ node* addNode(node* head, char* name);
 node* removeNode(node* head, char* name);
 node* findNode(node* head, char* name);
 node* fillLL(node* head);
+threadList* addThreadNode(threadList* head, pthread_t thread);
+void joinAll(threadList* head);
 void printLL(node* head);
 
 int main(int argc, char* argv[]){
+    signal(SIGINT, interruptHandler);
     setbuf(stdout, NULL);
-    int sockfd;
     int newsockfd;
     int clilen;
     int servlen;
     int bytes;
     char buffer[256];
     node* head = NULL;              //MAKE A C/H FILE for mutex stuff 
+    threadList* threadHead = NULL;
     struct sockaddr_in servaddr;
     struct sockaddr_in cliaddr;
 
@@ -99,6 +116,10 @@ int main(int argc, char* argv[]){
         //accept packets from clients
         
         newsockfd = accept(sockfd, (struct sockaddr*) &cliaddr, &clilen);
+        if(killProgram){
+            break;
+        }
+
         if(newsockfd < 0){
             printf("server could not accept a client\n");
             continue;
@@ -111,9 +132,22 @@ int main(int argc, char* argv[]){
         info->socketfd = newsockfd;
         if(pthread_create(&thread_id, NULL, switchCase, info) != 0){
             error("thread creation error");
+        } else {
+            threadHead = addThreadNode(threadHead, thread_id);
         }
     }
-    // close(sockfd) with a signal handler. can only be killed with sigkill
+    
+    //Code below prints out # of thread Nodes.
+    /*threadList* ptr = threadHead;
+    int j = 0;
+    for(j = 0; ptr != NULL; j++){
+        printf("%d -> ", j);
+        ptr = ptr->next;
+    }*/
+
+    //Join all the threads
+    joinAll(threadHead);
+    //socket is already closed
     return 0;
 }
 
@@ -140,12 +174,13 @@ void* switchCase(void* arg){
             printLL(((data*)arg)->head);
             break;
     }
-
+    close(newsockfd);
 }
 
 void* performDestroy(void* arg){
     //fully lock this one prob
     int socket = ((data*) arg)->socketfd;
+    sleep(5);
     int bytes = readSizeClient(socket);
     char projName[bytes + 1];
     read(socket, projName, bytes);
@@ -156,7 +191,7 @@ void* performDestroy(void* arg){
     node* found = findNode(((data*) arg)->head, projName);
     if(found == NULL) {
         
-        printf("Could not find project with that name to destroy\n");
+        printf("Could not find project with that name to destroy (%s)\n", projName);
         char* returnMsg = messageHandler("Could not find project with that name to destroy");
         int bytecheck = write(socket, returnMsg, strlen(returnMsg));
         free(returnMsg);
@@ -246,7 +281,6 @@ void* performCreate(void* arg){
     }
     pthread_mutex_unlock(&headLock);
     free(projectName);
-    close(socket);
 }
 
 int readCommand(int socket, char** buffer){
@@ -380,4 +414,33 @@ void printLL(node* head){
         ptr= ptr->next;
     }
     printf("NULL\n");
+}
+
+threadList* addThreadNode(threadList* head, pthread_t thread){
+    threadList* newNode = malloc(sizeof(threadList));
+    newNode->thread = thread;
+    newNode->next = NULL;
+
+    if(head == NULL){
+        return newNode;
+    }
+    
+    threadList* ptr = head;
+
+    while(ptr->next != NULL){
+        ptr = ptr->next;
+    }
+    ptr->next = newNode;
+    return head;
+}
+
+void joinAll(threadList* head){
+    
+    while(head != NULL){
+        threadList* temp = head->next;
+        pthread_join(head->thread, NULL);
+        free(head);
+        head = temp;
+    }
+    
 }
