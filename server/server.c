@@ -129,13 +129,13 @@ void* performDestroy(void* arg){
     }
     else{
         //destroy files and send success msg
-        pthread_mutex_lock(&alock);
-        close(dir);
+        //pthread_mutex_lock(&alock);
+        closedir(dir);
         recDest(projName);
         char* returnMsg = messageHandler("Successfully destroyed project");
         write(socket, returnMsg, sizeof(returnMsg));
         free(returnMsg);
-        pthread_mutex_unlock(&alock);
+        //pthread_mutex_unlock(&alock);
         return NULL;
     }
 }
@@ -163,7 +163,7 @@ int recDest(char* path){
             free(newPath);
         }
     }
-    close(dir);
+    closedir(dir);
     rmdir(path);
     return 0;
 }
