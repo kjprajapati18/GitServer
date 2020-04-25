@@ -135,7 +135,8 @@ int main(int argc, char* argv[]){
             char sendFile[12+strlen(argv[2])];
             sprintf(sendFile, "%d:%s", strlen(argv[2]), argv[2]);
             write(sockfd, sendFile, strlen(sendFile));
-            break; }
+            bytes = 
+            break;}
         case add: 
             read(sockfd, buffer, 32);
             printf("%s\n", buffer);
