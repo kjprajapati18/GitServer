@@ -37,8 +37,10 @@ node* addNode(node* head, char* name);
 node* removeNode(node* head, char* name);
 node* findNode(node* head, char* name);
 node* fillLL(node* head);
+void printLL(node* head);
 
 int main(int argc, char* argv[]){
+    setbuf(stdout, NULL);
     int sockfd;
     int newsockfd;
     int clilen;
@@ -90,6 +92,8 @@ int main(int argc, char* argv[]){
     else printf("server listening\n");
 
     clilen = sizeof(cliaddr);
+    data* info = (data*) malloc(sizeof(data));
+    info->head = head;
     while(1){
         //accept packets from clients
         printf("Waiting for connect...\n");
@@ -103,9 +107,7 @@ int main(int argc, char* argv[]){
         //switch case on mode corresponding to the enum in client.c. make thread for each function.
         //thread part  //chatting between client and server
         pthread_t thread_id;
-        data* info = (data*) malloc(sizeof(data));
         info->socketfd = newsockfd;
-        info->head = head;
         if(pthread_create(&thread_id, NULL, switchCase, info) != 0){
             error("thread creation error");
         }
@@ -148,22 +150,25 @@ void* performDestroy(void* arg){
     //now projName has the string name of the file to destroy
     DIR* dir = opendir(projName);
     if(dir == NULL) {
+        printf("Could not find project with that name to destroy");
         char* returnMsg = messageHandler("Could not find project with that name to destroy");
-        write(socket, returnMsg, strlen(returnMsg));
+        int bytecheck = write(socket, returnMsg, strlen(returnMsg));
         free(returnMsg);
         return NULL;
     }
     else{
         //destroy files and send success msg
         closedir(dir);
-        //node* found = findNode(((data*) arg)->head, projName);
-        //*(found->proj) = '\0';
-        //pthread_mutex_lock(&(found->mutex));
+        //printLL(((data*) arg)->head);
+        //if((((data*) arg)->head) == NULL) printf("IT'S NULL\n");
+        node* found = findNode(((data*) arg)->head, projName);
+        *(found->proj) = '\0';
+        pthread_mutex_lock(&(found->mutex));
         recDest(projName);
-        // pthread_mutex_unlock(&(found->mutex));
-        // pthread_mutex_lock(&headLock);
-        // ((data*) arg)->head = removeNode(((data*) arg)->head, projName);
-        // pthread_mutex_unlock(&headLock);
+        pthread_mutex_unlock(&(found->mutex));
+        pthread_mutex_lock(&headLock);
+        ((data*) arg)->head = removeNode(((data*) arg)->head, projName);
+        pthread_mutex_unlock(&headLock);
         char* returnMsg = messageHandler("Successfully destroyed project");
         printf("Notifying client\n");
         write(socket, returnMsg, strlen(returnMsg));
@@ -221,27 +226,21 @@ void* performCreate(void* arg){
     //treat LL as list of projects for all purposes
     pthread_mutex_lock(&headLock);
     ((data*) arg)->head = addNode(((data*) arg)->head, projectName);
-    pthread_mutex_unlock(&headLock);
 
     node* found = findNode(((data*) arg)->head, projectName);
-
+    printf("Test found name: %s\n", found->proj);
     pthread_mutex_lock(&(found->mutex));
     int creation = createProject(socket, projectName);
     pthread_mutex_unlock(&(found->mutex));
 
-    pthread_mutex_lock(&headLock);
-    ((data*) arg)->head = addNode(((data*) arg)->head, projectName);
-    pthread_mutex_unlock(&headLock);
         
     if(creation < 0){
         write(socket, "fail:", 5);
-        pthread_mutex_lock(&headLock);
         ((data*) arg)->head = removeNode(((data*) arg)->head, projectName);
-        pthread_mutex_unlock(&headLock);
 
     }
+    pthread_mutex_unlock(&headLock);
     free(projectName);
-
     close(socket);
 }
 
@@ -362,4 +361,10 @@ node* fillLL(node* head){
     }
     closedir(dir);
     return 0;
+void printLL(node* head){
+    node* ptr = head;
+    while(ptr!=NULL){
+        printf("%s\n", ptr->proj);
+        ptr= ptr->next;
+    }
 }

@@ -111,7 +111,7 @@ int main(int argc, char* argv[]){
             sprintf(sendFile, "%d:%s", strlen(argv[2]), argv[2]);
             write(sockfd, sendFile, strlen(sendFile));
             bytes = readSizeClient(sockfd);
-            char returnMsg[bytes];
+            char returnMsg[bytes + 1]; bzero(returnMsg, bytes+1);
             printf("%d\n", bytes);
             read(sockfd, returnMsg, bytes);
             printf("%s\n", returnMsg);
@@ -145,8 +145,6 @@ int main(int argc, char* argv[]){
             break;
     }
     return 0;
-
-
 }
 
 void sendServerCommand(int socket, char* command, int comLen){
