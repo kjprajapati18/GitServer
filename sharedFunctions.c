@@ -25,9 +25,9 @@ int readSizeClient(int socket){
 }
 
 char* readNClient(int socket, int size){
-    char* buffer = malloc(sizeof(char) * (size+1));
+    char* buffer = malloc(sizeof(char) * (size));
     read(socket, buffer, size);
-    buffer[size] = '\0';
+    buffer[size-1] = '\0';
     return buffer;
 }
 

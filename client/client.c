@@ -108,10 +108,10 @@ int main(int argc, char* argv[]){
             //performCreate(socket, argv);
             int nameSize = strlen(argv[2]);
             char sendFile[11+nameSize];
-            sprintf(sendFile, "%d:%s:", nameSize, argv[2]);
+            sprintf(sendFile, "%d:%s:", nameSize+1, argv[2]);
             write(sockfd, sendFile, strlen(sendFile)); 
-            read(sockfd, buffer, 255);
-            printf("%s\n", buffer);
+            //read(sockfd, buffer, 255);
+            //printf("%s\n", buffer);
             printf("create\n");
             break;}
         case destroy:{
