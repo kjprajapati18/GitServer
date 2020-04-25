@@ -160,8 +160,10 @@ void* performDestroy(void* arg){
         // ((data*) arg)->head = removeNode(((data*) arg)->head, projName);
         // pthread_mutex_unlock(&headLock);
         char* returnMsg = messageHandler("Successfully destroyed project");
-        write(socket, returnMsg, sizeof(returnMsg));
+        printf("Notifying client\n");
+        write(socket, returnMsg, strlen(returnMsg));
         free(returnMsg);
+        printf("Successfully destroyed %s\n", projName);
         return NULL;
     }
 }
@@ -192,7 +194,8 @@ int recDest(char* path){
         }
     }
     closedir(dir);
-    rmdir(path);
+    int check = rmdir(path);
+    printf("rmDir checl: %d\n");
     return 0;
 }
 

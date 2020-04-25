@@ -112,6 +112,7 @@ int main(int argc, char* argv[]){
             write(sockfd, sendFile, strlen(sendFile));
             bytes = readSizeClient(sockfd);
             char returnMsg[bytes];
+            printf("%d\n", bytes);
             read(sockfd, returnMsg, bytes);
             printf("%s\n", returnMsg);
             break;}
