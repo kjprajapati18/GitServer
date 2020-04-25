@@ -90,7 +90,7 @@ int main(int argc, char* argv[]){
     return 0;
 }
 
-void* destroy(void* arg){
+void* performDestroy(void* arg){
     pthread_mutex_init(&alock, NULL);
     int socket = *((int*) arg);
     int bytes = readSizeClient(socket);
@@ -100,16 +100,61 @@ void* destroy(void* arg){
     //now projName has the string name of the file to destroy
     DIR* dir = opendir(projName);
     if(dir < 0) {
-        write(socket, "Fatal Error: Project does not exist", 37);
+        char* returnMsg = messageHandler("Could not find project with that name to destroy");
+        write(socket, returnMsg, sizeof(returnMsg));
+        free(returnMsg);
         return NULL;
     }
     else{
         //destroy files and send success msg
-        write(socket, "Successfully destroyed project\0\0\0\0\0\0", 37);
+        recDest(projName);
+        char* returnMsg = messageHandler("Successfully destroyed project");
+        write(socket, returnMsg, sizeof(returnMsg));
+        free(returnMsg);
+        return NULL;
     }
 
     
 }
+
+int recDest(char* path){
+    DIR* dir = opendir(path);
+    int len = strlen(path);
+    if(dir){
+        struct dirent* entry;
+        while((entry =readdir(dir))){
+            char* newPath; 
+            int newLen;
+            if(!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, "..")) continue;
+            newLen = len + strlen(entry->d_name) + 2;
+            newPath = malloc(newLen); bzero(newPath, sizeof(newLen));
+            strcpy(newPath, path);
+            strcat(newPath, "/");
+            strcat(newPath, entry->d_name);
+            if(entry->d_type == DT_DIR){
+                recDest(newPath);
+            }
+            else if(entry->d_type == DT_REG){
+                remove(newPath);
+            }
+            free(newPath);
+        }
+    }
+    rmdir(path);
+}
+
+char* messageHandler(char* msg){
+    int size = strlen(msg);
+    char returnMsg = malloc(12+size); bzero(returnMsg, 12+size);
+    sprintf(returnMsg, "%d:%s", size, msg);
+    return returnMsg;
+}
+
+/*char* returnMsg(char* msg, int size){
+    char* returnMessage = (char*) malloc(size); bzero(returnMessage, size);
+    strncpy(returnMessage, msg, strlen(msg));
+    return returnMessage;
+}*/
 
 void *chatFunc(void* arg){
     pthread_mutex_init(&alock, NULL);
