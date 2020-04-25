@@ -15,6 +15,7 @@
 
 pthread_mutex_t headLock; 
 void* performCreate(void*);
+void* switchCase(void* arg);
 int readCommand(int socket, char** buffer);
 int createProject(int socket, char* name);
 //char* readNClient(int socket, int size);
@@ -43,7 +44,7 @@ int main(int argc, char* argv[]){
     int servlen;
     int bytes;
     char buffer[256];
-    node* head;              //MAKE A C/H FILE for mutex stuff 
+    node* head = NULL;              //MAKE A C/H FILE for mutex stuff 
     struct sockaddr_in servaddr;
     struct sockaddr_in cliaddr;
 
@@ -110,6 +111,7 @@ int main(int argc, char* argv[]){
 
 void* switchCase(void* arg){
     int newsockfd = ((data*) arg)->socketfd;
+    int bytes;
     char cmd[3];
     bzero(cmd, 3);
     bytes = write(newsockfd, "You are connected to the server", 32);
@@ -150,7 +152,7 @@ void* performDestroy(void* arg){
         //destroy files and send success msg
         closedir(dir);
         node* found = findNode(((data*) arg)->head, projName);
-        *(found->proj) = "\0";
+        *(found->proj) = '\0';
         pthread_mutex_lock(&(found->mutex));
         recDest(projName);
         pthread_mutex_unlock(&(found->mutex));
@@ -210,7 +212,9 @@ void* performCreate(void* arg){
     pthread_mutex_lock(&headLock);
     ((data*) arg)->head = addNode(((data*) arg)->head, projectName);
     pthread_mutex_unlock(&headLock);
+
     node* found = findNode(((data*) arg)->head, projectName);
+
     pthread_mutex_lock(&(found->mutex));
     int creation = createProject(socket, projectName);
     pthread_mutex_unlock(&(found->mutex));
@@ -266,7 +270,7 @@ int createProject(int socket, char* name){
         printf("Error: Could not create .Manifest file. Nothing created\n");
         return -2;
     }
-    write(manifest, "1", 1);
+    write(manifest, "0", 1);
     printf("Succesful server-side project creation. Notifying Client\n");
     write(socket, "succ:", 5);
     return 0;
