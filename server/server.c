@@ -36,6 +36,7 @@ typedef struct _data{
 node* addNode(node* head, char* name);
 node* removeNode(node* head, char* name);
 node* findNode(node* head, char* name);
+node* fillLL(node* head);
 
 int main(int argc, char* argv[]){
     int sockfd;
@@ -76,6 +77,10 @@ int main(int argc, char* argv[]){
     }
     else printf("Socket binded\n");
 
+    //Creating list of projects
+    printf("Creating list of projects...");
+    head = fillLL(head);
+    printf("Success!\n");
 
     //listening 
     if (listen(sockfd, 5) != 0){
@@ -332,4 +337,29 @@ node* findNode(node* head, char* name){
         ptr = ptr->next;
     }
     return ptr;
+}
+
+node* fillLL(node* head){
+    char path[3] = "./";
+    DIR* dir = opendir(path);
+    if(dir){
+        struct dirent* entry;
+        readdir(dir);
+        readdir(dir);
+        while((entry =readdir(dir))){
+            if(entry->d_type != DT_DIR) continue;
+            char* newPath; 
+            int newLen;
+            newLen = strlen(entry->d_name) + 10;
+            newPath = malloc(newLen); bzero(newPath, sizeof(newLen));
+            strcpy(newPath, entry->d_name);
+            strcat(newPath, "/.Manifest");
+            if(open(newPath, O_RDWR) > 0){
+                head = addNode(head, entry->d_name);
+            }
+            free(newPath);
+        }
+    }
+    closedir(dir);
+    return 0;
 }
