@@ -23,11 +23,11 @@ int createProject(int socket, char* name);
 void* performDestroy(void*);
 char* messageHandler(char* msg);
 
-int killProgram = 1;
+int killProgram = 0;
 int sockfd;
 
 void interruptHandler(int sig){
-    killProgram = 0;
+    killProgram = 1;
     close(sockfd);
 }
 
@@ -116,7 +116,7 @@ int main(int argc, char* argv[]){
         //accept packets from clients
         
         newsockfd = accept(sockfd, (struct sockaddr*) &cliaddr, &clilen);
-        if(!killProgram){
+        if(killProgram){
             break;
         }
 
@@ -136,13 +136,16 @@ int main(int argc, char* argv[]){
             threadHead = addThreadNode(threadHead, thread_id);
         }
     }
-    threadList* ptr = threadHead;
+    
+    //Code below prints out # of thread Nodes.
+    /*threadList* ptr = threadHead;
     int j = 0;
     for(j = 0; ptr != NULL; j++){
         printf("%d -> ", j);
         ptr = ptr->next;
-    }
+    }*/
 
+    //Join all the threads
     joinAll(threadHead);
     //socket is already closed
     return 0;
@@ -171,13 +174,13 @@ void* switchCase(void* arg){
             printLL(((data*)arg)->head);
             break;
     }
-
+    close(newsockfd);
 }
 
 void* performDestroy(void* arg){
     //fully lock this one prob
     int socket = ((data*) arg)->socketfd;
-    //sleep(5);
+    sleep(5);
     int bytes = readSizeClient(socket);
     char projName[bytes + 1];
     read(socket, projName, bytes);
@@ -278,7 +281,6 @@ void* performCreate(void* arg){
     }
     pthread_mutex_unlock(&headLock);
     free(projectName);
-    close(socket);
 }
 
 int readCommand(int socket, char** buffer){

@@ -8,11 +8,19 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <signal.h>
 
 #include "../sharedFunctions.h"
 /* TODO LIST:::
     Move read commands to a separate file, since they are exactly the same.
 */
+
+int sockfd;
+int killProgram = 0;
+void interruptHandler(int sig){
+    killProgram = 1;
+    close(sockfd);
+}
 
 void writeConfigureFile(char* IP, char* port);
 void sendServerCommand(int socket, char* command, int comLen);
@@ -26,6 +34,7 @@ command argCheck(int argc, char* arg);
 
 int main(int argc, char* argv[]){
     //int sockfd;
+    signal(SIGINT, interruptHandler);
     int port;
     char* ipAddr;
     int bytes;
@@ -47,7 +56,7 @@ int main(int argc, char* argv[]){
     struct sockaddr_in servaddr;
     struct hostent *server;
 
-    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if(sockfd == -1){
         error("error opening socket");
     }
@@ -70,6 +79,11 @@ int main(int argc, char* argv[]){
     while(connect(sockfd, (struct sockaddr*) &servaddr, sizeof(servaddr)) != 0){
         printf("Error: Could not connect to server. Retrying in 3 seconds...\n");
         sleep(3);
+        if(killProgram) break;
+    }
+    if(killProgram){
+        printf("\nClosing sockets and freeing\n");
+        return 0;
     }
     printf("successfully connected to host.\n");
 
