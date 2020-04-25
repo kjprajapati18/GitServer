@@ -361,6 +361,8 @@ node* fillLL(node* head){
     }
     closedir(dir);
     return 0;
+}
+
 void printLL(node* head){
     node* ptr = head;
     while(ptr!=NULL){
