@@ -82,6 +82,7 @@ int main(int argc, char* argv[]){
     //Creating list of projects
     printf("Creating list of projects...");
     head = fillLL(head);
+    printLL(head);
     printf("Success!\n");
 
     //listening 
@@ -96,7 +97,7 @@ int main(int argc, char* argv[]){
     info->head = head;
     while(1){
         //accept packets from clients
-        printf("Waiting for connect...\n");
+        
         newsockfd = accept(sockfd, (struct sockaddr*) &cliaddr, &clilen);
         if(newsockfd < 0){
             printf("server could not accept a client\n");
@@ -133,8 +134,10 @@ void* switchCase(void* arg){
 
     switch(mode){
         case create: performCreate(arg);
+            printLL(((data*)arg)->head);
             break;
         case destroy: performDestroy(arg);
+            printLL(((data*)arg)->head);
             break;
     }
 
@@ -150,7 +153,7 @@ void* performDestroy(void* arg){
     //now projName has the string name of the file to destroy
     DIR* dir = opendir(projName);
     if(dir == NULL) {
-        printf("Could not find project with that name to destroy");
+        printf("Could not find project with that name to destroy\n");
         char* returnMsg = messageHandler("Could not find project with that name to destroy");
         int bytecheck = write(socket, returnMsg, strlen(returnMsg));
         free(returnMsg);
@@ -163,12 +166,15 @@ void* performDestroy(void* arg){
         //if((((data*) arg)->head) == NULL) printf("IT'S NULL\n");
         node* found = findNode(((data*) arg)->head, projName);
         *(found->proj) = '\0';
+        
         pthread_mutex_lock(&(found->mutex));
         recDest(projName);
         pthread_mutex_unlock(&(found->mutex));
+
         pthread_mutex_lock(&headLock);
-        ((data*) arg)->head = removeNode(((data*) arg)->head, projName);
+        ((data*) arg)->head = removeNode(((data*) arg)->head, "");
         pthread_mutex_unlock(&headLock);
+
         char* returnMsg = messageHandler("Successfully destroyed project");
         printf("Notifying client\n");
         write(socket, returnMsg, strlen(returnMsg));
@@ -308,15 +314,17 @@ node* addNode(node* head, char* name){
 
 node* removeNode(node* head, char* name){
     node *ptr = head, *prev = NULL;
+    
     while(ptr != NULL && strcmp(ptr->proj, name)){
         prev = ptr;
         ptr = ptr->next;
     }
 
     if(ptr == NULL){
+        printf("Could not find Node\n");
         return NULL;
     }
-
+    
     if(prev != NULL){
         prev->next = ptr->next;
     } else {
@@ -353,20 +361,24 @@ node* fillLL(node* head){
             newPath = malloc(newLen); bzero(newPath, sizeof(newLen));
             strcpy(newPath, entry->d_name);
             strcat(newPath, "/.Manifest");
-            if(open(newPath, O_RDWR) > 0){
+            int file = open(newPath, O_RDWR);
+            if(file > 0){
                 head = addNode(head, entry->d_name);
+                close(file);
             }
             free(newPath);
         }
     }
+    
     closedir(dir);
-    return 0;
+    return head;
 }
 
 void printLL(node* head){
     node* ptr = head;
     while(ptr!=NULL){
-        printf("%s\n", ptr->proj);
+        printf("%s -> ", ptr->proj);
         ptr= ptr->next;
     }
+    printf("NULL\n");
 }
