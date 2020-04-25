@@ -138,8 +138,8 @@ void* performDestroy(void* arg){
     int socket = ((data*) arg)->socketfd;
     int bytes = readSizeClient(socket);
     char projName[bytes + 1];
-    projName[bytes] = '\0';
     read(socket, projName, bytes);
+    projName[bytes] = '\0';
     //now projName has the string name of the file to destroy
     DIR* dir = opendir(projName);
     if(dir < 0) {
@@ -151,14 +151,14 @@ void* performDestroy(void* arg){
     else{
         //destroy files and send success msg
         closedir(dir);
-        node* found = findNode(((data*) arg)->head, projName);
-        *(found->proj) = '\0';
-        pthread_mutex_lock(&(found->mutex));
+        //node* found = findNode(((data*) arg)->head, projName);
+        //*(found->proj) = '\0';
+        //pthread_mutex_lock(&(found->mutex));
         recDest(projName);
-        pthread_mutex_unlock(&(found->mutex));
-        pthread_mutex_lock(&headLock);
-        ((data*) arg)->head = removeNode(((data*) arg)->head, projName);
-        pthread_mutex_unlock(&headLock);
+        // pthread_mutex_unlock(&(found->mutex));
+        // pthread_mutex_lock(&headLock);
+        // ((data*) arg)->head = removeNode(((data*) arg)->head, projName);
+        // pthread_mutex_unlock(&headLock);
         char* returnMsg = messageHandler("Successfully destroyed project");
         write(socket, returnMsg, sizeof(returnMsg));
         free(returnMsg);
@@ -181,9 +181,11 @@ int recDest(char* path){
             strcat(newPath, "/");
             strcat(newPath, entry->d_name);
             if(entry->d_type == DT_DIR){
+                printf("Deleting folder: %s\n", newPath);
                 recDest(newPath);
             }
             else if(entry->d_type == DT_REG){
+                printf("Deleting file: %s\n", newPath);
                 remove(newPath);
             }
             free(newPath);
