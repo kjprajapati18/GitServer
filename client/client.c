@@ -104,32 +104,7 @@ int main(int argc, char* argv[]){
             printf("push\n");
             break;
         case create:{
-        //add string to sprintf
-            //performCreate(socket, argv);
-            int nameSize = strlen(argv[2]);
-            char sendFile[11+nameSize];
-            sprintf(sendFile, "%d:%s:", nameSize+1, argv[2]);
-            write(sockfd, sendFile, strlen(sendFile)); 
-            read(sockfd, buffer, 5); //Waiting for either fail: or succ:
-            buffer[5] = '\0';       //Make it a string
-            //printf("%s\n", buffer);
-            
-            if(strcmp(buffer, "succ:") == 0){
-                printf("%s was created on server!\n", argv[2]);
-                mkdir(argv[2], 00700);
-                sprintf(sendFile, "%s/%s", argv[2], ".Manifest"); //sendFile now has path since it has enough space
-                remove(sendFile); //There shouldn't be one anyways
-                int output = open(sendFile, O_CREAT | O_WRONLY, 00600);
-                if(output < 0){
-                    printf("Fatal Error: Cannot create local .Manifest file. Server still retains copy\n");
-                }else{
-                    write(output, "1", 1);
-                    printf("Project successfully created locally!\n");
-                }
-            } else {
-                printf("Fatal Error: Server was unable to create this project. The project may already exist\n");
-            }
-
+            performCreate(sockfd, argv);
             break;}
         case destroy:{
             char sendFile[12+strlen(argv[2])];
@@ -306,6 +281,29 @@ int readSizeServer(int socket){
     return atoi(buffer);
 }
 
-int performCreate(int socket, char** argv){
-
+int performCreate(int sockfd, char** argv){
+    int nameSize = strlen(argv[2]);
+    char sendFile[11+nameSize];
+    sprintf(sendFile, "%d:%s:", nameSize+1, argv[2]);
+    write(sockfd, sendFile, strlen(sendFile)); 
+    read(sockfd, sendFile, 5); //Waiting for either fail: or succ:
+    sendFile[5] = '\0';       //Make it a string
+    //printf("%s\n", buffer);
+            
+    if(strcmp(sendFile, "succ:") == 0){
+        printf("%s was created on server!\n", argv[2]);
+        mkdir(argv[2], 00700);
+        sprintf(sendFile, "%s/%s", argv[2], ".Manifest"); //sendFile now has path since it has enough space
+        remove(sendFile); //There shouldn't be one anyways
+        int output = open(sendFile, O_CREAT | O_WRONLY, 00600);
+        if(output < 0){
+            printf("Fatal Error: Cannot create local .Manifest file. Server still retains copy\n");
+        }else{
+            write(output, "0", 1);
+            printf("Project successfully created locally!\n");
+        }
+    } else {
+        printf("Fatal Error: Server was unable to create this project. The project may already exist\n");
+    }
+    return 0;
 }
