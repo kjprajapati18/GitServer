@@ -142,9 +142,9 @@ void* performDestroy(void* arg){
     projName[bytes] = '\0';
     //now projName has the string name of the file to destroy
     DIR* dir = opendir(projName);
-    if(dir < 0) {
+    if(dir == NULL) {
         char* returnMsg = messageHandler("Could not find project with that name to destroy");
-        write(socket, returnMsg, sizeof(returnMsg));
+        write(socket, returnMsg, strlen(returnMsg));
         free(returnMsg);
         return NULL;
     }
@@ -195,7 +195,7 @@ int recDest(char* path){
     }
     closedir(dir);
     int check = rmdir(path);
-    printf("rmDir checl: %d\n");
+    printf("rmDir checl: %d\n", check);
     return 0;
 }
 
@@ -278,6 +278,7 @@ int createProject(int socket, char* name){
     write(manifest, "0", 1);
     printf("Succesful server-side project creation. Notifying Client\n");
     write(socket, "succ:", 5);
+    close(manifest);
     return 0;
 }
 
