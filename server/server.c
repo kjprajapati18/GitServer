@@ -112,14 +112,15 @@ void* performDestroy(void* arg){
     }
     else{
         //destroy files and send success msg
+        pthread_mutex_lock(&alock);
+        close(dir);
         recDest(projName);
         char* returnMsg = messageHandler("Successfully destroyed project");
         write(socket, returnMsg, sizeof(returnMsg));
         free(returnMsg);
+        pthread_mutex_unlock(&alock);
         return NULL;
     }
-
-    
 }
 
 int recDest(char* path){
@@ -145,6 +146,7 @@ int recDest(char* path){
             free(newPath);
         }
     }
+    close(dir);
     rmdir(path);
 }
 
