@@ -9,6 +9,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <dirent.h>
 
 #include "../sharedFunctions.h"
 
@@ -71,13 +72,15 @@ int main(int argc, char* argv[]){
             continue;
         }
         printf("server accepted client\n");
-        char cmd[15];
-        bzero(cmd, 15);
+        char cmd[3];
+        bzero(cmd, 3);
         bytes = write(newsockfd, "You are connected to the server", 32);
         if(bytes < 0) error("Could not write to client");
-        bytes = read(newsockfd, cmd, 15);
+        bytes = read(newsockfd, cmd, 3);
         if (bytes < 0) error("Coult not read from client");
-        printf("Chosen Command: %s\n", cmd);
+        printf("Chosen Command: %d\n", cmd);
+        int mode = atoi(cmd);
+        //switch case on mode corresponding to the enum in client.c. make thread for each function.
         //thread part  //chatting between client and server
         pthread_t thread_id;
         if(pthread_create(&thread_id, NULL, chatFunc, &newsockfd) != 0){
@@ -96,6 +99,17 @@ void* performDestroy(void* arg){
     projName[bytes] = '\0';
     read(socket, projName, bytes);
     //now projName has the string name of the file to destroy
+    DIR* dir = opendir(projName);
+    if(dir < 0) {
+        write(socket, "Fatal Error: Project does not exist", 37);
+        return NULL;
+    }
+    else{
+        //destroy files and send success msg
+        write(socket, "Successfully destroyed project\0\0\0\0\0\0", 37);
+    }
+
+    
 }
 
 void *chatFunc(void* arg){
