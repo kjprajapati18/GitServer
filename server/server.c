@@ -47,6 +47,9 @@ int main(int argc, char* argv[]){
     struct sockaddr_in servaddr;
     struct sockaddr_in cliaddr;
 
+    pthread_mutex_init(&headLock, NULL);
+    //destroy atexit()?
+
     //socket creation
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if(sockfd == -1){
@@ -89,22 +92,15 @@ int main(int argc, char* argv[]){
             printf("server could not accept a client\n");
             continue;
         }
-        printf("server accepted client\n");
-        char cmd[3];
-        bzero(cmd, 3);
-        bytes = write(newsockfd, "You are connected to the server", 32);
-        if(bytes < 0) error("Could not write to client");
+        //printf("server accepted client\n");
 
-        printf("Waiting for command..\n");
-        bytes = read(newsockfd, cmd, 3);
-        
-        if (bytes < 0) error("Coult not read from client");
-        int mode = atoi(cmd);
-        printf("Chosen Command: %d\n", mode);
         //switch case on mode corresponding to the enum in client.c. make thread for each function.
         //thread part  //chatting between client and server
         pthread_t thread_id;
-        if(pthread_create(&thread_id, NULL, performCreate, &newsockfd) != 0){
+        data* info = (data*) malloc(sizeof(data));
+        info->socketfd = newsockfd;
+        info->head = head;
+        if(pthread_create(&thread_id, NULL, switchCase, info) != 0){
             error("thread creation error");
         }
     }
@@ -112,9 +108,32 @@ int main(int argc, char* argv[]){
     return 0;
 }
 
+void* switchCase(void* arg){
+    int newsockfd = ((data*) arg)->socketfd;
+    char cmd[3];
+    bzero(cmd, 3);
+    bytes = write(newsockfd, "You are connected to the server", 32);
+    if(bytes < 0) error("Could not write to client");
+
+    printf("Waiting for command..\n");
+    bytes = read(newsockfd, cmd, 3);
+    
+    if (bytes < 0) error("Could not read from client");
+    int mode = atoi(cmd);
+    printf("Chosen Command: %d\n", mode);
+
+    switch(mode){
+        case create: performCreate(arg);
+            break;
+        case destroy: performDestroy(arg);
+            break;
+    }
+
+}
+
 void* performDestroy(void* arg){
-    //pthread_mutex_init(&alock, NULL);
-    int socket = *((int*) arg);
+    //fully lock this one prob
+    int socket = ((data*) arg)->socketfd;
     int bytes = readSizeClient(socket);
     char projName[bytes + 1];
     projName[bytes] = '\0';
@@ -129,13 +148,18 @@ void* performDestroy(void* arg){
     }
     else{
         //destroy files and send success msg
-        pthread_mutex_lock(&alock);
-        close(dir);
+        closedir(dir);
+        node* found = findNode(((data*) arg)->head, projName);
+        *(found->proj) = "\0";
+        pthread_mutex_lock(&(found->mutex));
         recDest(projName);
+        pthread_mutex_unlock(&(found->mutex));
+        pthread_mutex_lock(&headLock);
+        ((data*) arg)->head = removeNode(((data*) arg)->head, projName);
+        pthread_mutex_unlock(&headLock);
         char* returnMsg = messageHandler("Successfully destroyed project");
         write(socket, returnMsg, sizeof(returnMsg));
         free(returnMsg);
-        pthread_mutex_unlock(&alock);
         return NULL;
     }
 }
@@ -175,27 +199,34 @@ char* messageHandler(char* msg){
     return returnMsg;
 }
 
-/*char* returnMsg(char* msg, int size){
-    char* returnMessage = (char*) malloc(size); bzero(returnMessage, size);
-    strncpy(returnMessage, msg, strlen(msg));
-    return returnMessage;
-}*/
 
 void* performCreate(void* arg){
-    //pthread_mutex_init(&alock, NULL);
-    int socket = *((int*) arg);
-
+    int socket = ((data*) arg)->socketfd;
     printf("Succesful create message received\n");
-    
-    //write(socket, "completed", 10);
     printf("Attempting to read project name...\n");
     char* projectName = readNClient(socket, readSizeClient(socket));
+    //find node check to see if it already exists in linked list
+    //treat LL as list of projects for all purposes
+    pthread_mutex_lock(&headLock);
+    ((data*) arg)->head = addNode(((data*) arg)->head, projectName);
+    pthread_mutex_unlock(&headLock);
+    node* found = findNode(((data*) arg)->head, projectName);
+    pthread_mutex_lock(&(found->mutex));
     int creation = createProject(socket, projectName);
-    free(projectName);
-    
+    pthread_mutex_unlock(&(found->mutex));
+
+    pthread_mutex_lock(&headLock);
+    ((data*) arg)->head = addNode(((data*) arg)->head, projectName);
+    pthread_mutex_unlock(&headLock);
+        
     if(creation < 0){
         write(socket, "fail:", 5);
+        pthread_mutex_lock(&headLock);
+        ((data*) arg)->head = removeNode(((data*) arg)->head, projectName);
+        pthread_mutex_unlock(&headLock);
+
     }
+    free(projectName);
 
     close(socket);
 }
@@ -209,24 +240,6 @@ int readCommand(int socket, char** buffer){
     (*buffer)[bytesRead-1] = '\0';
     return 0;
 }
-
-/*int readSizeClient(int socket){
-    int status = 0, bytesRead = 0;
-    char buffer[11];
-    do{
-        status = read(socket, buffer+bytesRead, 1);
-        bytesRead += status;
-    }while(status > 0 && buffer[bytesRead-1] != ':');
-    buffer[bytesRead-1] = '\0';
-    return atoi(buffer);
-}
-
-char* readNClient(int socket, int size){
-    char* buffer = malloc(sizeof(char) * (size+1));
-    read(socket, buffer, size);
-    buffer[size] = '\0';
-    return buffer;
-}*/
 
 int createProject(int socket, char* name){
     printf("%s\n", name);
