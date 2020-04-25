@@ -10,12 +10,14 @@
 #include <unistd.h>
 #include <pthread.h>
 
+#include "../sharedFunctions.h"
+
 pthread_mutex_t alock; 
 void* chatFunc(void*);
-void error(char*);
 int readCommand(int socket, char** buffer);
 int createProject(int socket, char* name);
-char* readNClient(int socket, int size);
+//char* readNClient(int socket, int size);
+void* performDestroy(void*);
 
 int main(int argc, char* argv[]){
     int sockfd;
@@ -86,7 +88,7 @@ int main(int argc, char* argv[]){
     return 0;
 }
 
-void* destroy(void* arg){
+void* performDestroy(void* arg){
     pthread_mutex_init(&alock, NULL);
     int socket = *((int*) arg);
     int bytes = readSizeClient(socket);
@@ -94,7 +96,6 @@ void* destroy(void* arg){
     projName[bytes] = '\0';
     read(socket, projName, bytes);
     //now projName has the string name of the file to destroy
-    
 }
 
 void *chatFunc(void* arg){
@@ -133,7 +134,7 @@ int readCommand(int socket, char** buffer){
     return 0;
 }
 
-int readSizeClient(int socket){
+/*int readSizeClient(int socket){
     int status = 0, bytesRead = 0;
     char buffer[11];
     do{
@@ -149,14 +150,9 @@ char* readNClient(int socket, int size){
     read(socket, buffer, size);
     buffer[size] = '\0';
     return buffer;
-}
+}*/
 
 int createProject(int socket, char* name){
     printf("%s\n", name);
     return 0;
-}
-
-void error(char* msg){
-    perror(msg);
-    exit(1);
 }
