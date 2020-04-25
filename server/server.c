@@ -187,7 +187,7 @@ int recDest(char* path){
             free(newPath);
         }
     }
-    close(dir);
+    closedir(dir);
     rmdir(path);
     return 0;
 }
