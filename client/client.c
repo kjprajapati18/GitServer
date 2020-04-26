@@ -324,7 +324,7 @@ int performRemove(char** argv){
     }while(status != 0);
 
     manifest[size] = '\0';
-    char newmani[size+3]; bzero(newmani, size+3);
+    //char newmani[size+3]; bzero(newmani, size+3);
     char* filename = (char*) malloc(len3);
     int i;
     for(i = 0; i < size + 1; i++){
@@ -345,6 +345,23 @@ int performRemove(char** argv){
                     close(manfd);
                     return -1;
                 }
+                else if(manifest[i-2] == 'A'){
+                    char newmani[size - len1 - len2 - 40]; bzero(newmani, size - len1 - len2 -40);
+                    strncpy(newmani, i-4);
+                    strcpy(newmani, &manifest[i+len1+len2+ 37]);
+                    close(manfd);
+                    remove(manPath);
+                    int newfd = open(manPath, O_CREAT | O_WRONLY, 00600);
+                    write(newfd, newmani);
+                    free(filename);
+                    free(manPath);
+                    free(writefile);
+                    close(newfd);
+                    printf("Removed file from manifest\n");
+                    return 0;
+                }
+                //did not remove file so need to add R
+                char newmani[size+3]; bzero(newmani, size+3);
                 //did not remove file so need to add R
                 strncpy(newmani, manifest, i-1); //-1 is to remove the space
                 strcat(newmani, "R ");
