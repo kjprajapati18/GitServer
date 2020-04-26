@@ -188,6 +188,7 @@ int main(int argc, char* argv[]){
 //if you want to add answer to the case above
 //if R already-> add file: remove the R
 //ADD AND REMOVE SHOULD NOT FAIL IF WE CAN'T CONNECT TO SERVER
+//Exists function to make sure file exists
 int performAdd(char** argv){
     DIR* d = opendir(argv[2]);
     
@@ -205,10 +206,21 @@ int performAdd(char** argv){
     printf("Path: %s\n\n", manPath);
     int len3 = len1+5+len2;
     char* writefile = (char*) malloc(len3); 
-    sprintf(writefile, "./%s/%s", argv[2], argv[3]);
+    sprintf(writefile, "./%s/%s ", argv[2], argv[3]);
+
+    //Check if we can open/has the file
+    writefile[strlen(writefile)-1] = '\0';
+    char* hashcode = hash(writefile);
+    if(hashcode == NULL){
+        printf("Fatal Error: Cannot open/hash file. Make sure it exists with write permissions\n");
+        free(writefile);
+        free(manPath);
+        return 1;
+    }
+    writefile[strlen(writefile)-1] = ' ';
 
     //check if if file already exists in manifest:
-    int manfd = open("./project2/.Manifest", O_RDONLY);
+    int manfd = open(manPath, O_RDONLY);
     int size = (int) lseek(manfd, 0, SEEK_END);
     printf("Size: %d\nFD: %d\n", size, manfd);
     lseek(manfd, 0, SEEK_SET);
@@ -231,8 +243,8 @@ int performAdd(char** argv){
             ptr++;
         }
         if(*ptr == '\0') break;
-        strncpy(filename, ptr, len3-1);
-        filename[len3-2] = '\0';
+        strncpy(filename, ptr, len3);
+        filename[len3-1] = '\0';
         printf("%s\n", filename);
         printf("%s\n", writefile);
         if(!strcmp(filename, writefile)){
@@ -250,14 +262,13 @@ int performAdd(char** argv){
     //add it
     printf("%s\n", writefile);
     printf("%d\n", strlen(writefile));
-    manfd = open(manPath, O_WRONLY);
-    lseek(manfd, 0, SEEK_END);
+    manfd = open(manPath, O_WRONLY | O_APPEND);
+    //lseek(manfd, 0, SEEK_END);
     if(manfd < 0) error("Could not open manifest");
-    char* hashcode = hash(writefile);
+
     //sprintf(writefile, "./%s/%s ", argv[1], argv[2]);
     writeString(manfd, "0A ");
     writeString(manfd, writefile);
-    writeString(manfd, " ");
     writeString(manfd, hashcode);
     writeString(manfd, "\n");
     free(hashcode);
@@ -543,6 +554,8 @@ int performUpdate(int sockfd, char** argv){
     }
     clientMan[bytesRead] = '\0';
 
+    //Get the manifest version numbers of each
+    int serverManVerNum;
     if(!strcmp(serverMan, clientMan)){
         printf("Server and Client Manifests are the same!\n");
     } else {
