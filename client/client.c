@@ -563,7 +563,8 @@ char* hash(char* path){
     int bytes;
     unsigned char buffer[256];
     if(fd < 0){
-        error("cannot open file");
+        printf("cannot open file");
+        return NULL;
     }
     MD5_Init(&mdContext);
     do{
