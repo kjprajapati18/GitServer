@@ -461,7 +461,7 @@ void* performCurVer(void* arg){
     char projName[bytes + 1];
     read(socket, projName, bytes);
     projName[bytes] = '\0';
-    perror("here");
+    
     node* found = findNode(((data*) arg)->head, projName);
     pthread_mutex_lock(&(found->mutex));
     int check = 0;
@@ -471,7 +471,7 @@ void* performCurVer(void* arg){
         int bytecheck = write(socket, returnMsg, strlen(returnMsg));
         free(returnMsg);
     }else{
-        perror("Here");
+        
         check = sendManifest(socket, projName);
         if(check == 0)printf("Successfully sent current version to client\n");
         else printf("Something went wrong with sendManifest (%d)\n", check);
@@ -483,17 +483,15 @@ void* performCurVer(void* arg){
 //# is the size of the Manifest while Data is the actual content
 int sendManifest(int sockfd, char* projectName){
     int projNameLen = strlen(projectName);
-    printf("%d\n", projNameLen);
+    
     char manPath[projNameLen + 12];
     sprintf(manPath, "%s/.Manifest", projectName);
 
-    printf("%s\n", manPath);
     int manifest = open(manPath, O_RDONLY);
     if(manifest < 0) return 2;
     int fileSize = (int) lseek(manifest, 0, SEEK_END);
-    printf("%d\n", lseek(manifest, 0, SEEK_SET));
+    lseek(manifest, 0, SEEK_SET);
     
-    printf("%d\n", fileSize);
     char* fileData = (char*) malloc(sizeof(char) * (fileSize+13)); bzero(fileData, fileSize+13);
     
     sprintf(fileData, "%d:", fileSize);

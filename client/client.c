@@ -32,7 +32,7 @@ int writeString(int fd, char* string);
 char* hash(char* path);
 
 int performCreate(int socket, char** argv);
-
+void printCurVer(char* manifest);
 //int connectToServer(char* ipAddr, int port);
 command argCheck(int argc, char* arg);
 
@@ -130,10 +130,9 @@ int main(int argc, char* argv[]){
             write(sockfd, sendFile, strlen(sendFile));
             bytes = readSizeClient(sockfd);
             char returnMsg[bytes + 1]; bzero(returnMsg, bytes+1);
-            printf("%d\n", bytes);
             read(sockfd, returnMsg, bytes);
             printf("%s\n", returnMsg);
-            printf("%s\n", hash("hashtest.txt"));
+            //printf("%s\n", hash("hashtest.txt"));
             break;}
         case add: 
             performAdd(argv);
@@ -149,8 +148,10 @@ int main(int argc, char* argv[]){
             sprintf(sendFile, "%d:%s", strlen(argv[2]), argv[2]);
             write(sockfd, sendFile, strlen(sendFile));
             
-            readSizeClient
-
+            char* manifest = readNClient(sockfd, readSizeClient(sockfd));
+            printCurVer(manifest);
+            free(manifest);
+            printf("Done\n");
             break;}
         case history: 
             read(sockfd, buffer, 32);
@@ -345,8 +346,8 @@ command argCheck(int argc, char* arg){
 
 int performCreate(int sockfd, char** argv){
     int nameSize = strlen(argv[2]);
-    char sendFile[11+nameSize];
-    sprintf(sendFile, "%d:%s:", nameSize+1, argv[2]);
+    char sendFile[12+nameSize];
+    sprintf(sendFile, "%d:%s", nameSize, argv[2]);
     write(sockfd, sendFile, strlen(sendFile)); 
     read(sockfd, sendFile, 5); //Waiting for either fail: or succ:
     sendFile[5] = '\0';       //Make it a string
@@ -396,4 +397,8 @@ char* hash(char* path){
     }
     return hash;
 
+}
+
+void printCurVer(char* manifest){
+    int i =0;
 }
