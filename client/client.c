@@ -149,9 +149,9 @@ int main(int argc, char* argv[]){
             write(sockfd, sendFile, strlen(sendFile));
             
             char* manifest = readNClient(sockfd, readSizeClient(sockfd));
+            printf("Success! Current Version received:\n\n");
             printCurVer(manifest);
             free(manifest);
-            printf("Done\n");
             break;}
         case history: 
             read(sockfd, buffer, 32);
@@ -400,5 +400,22 @@ char* hash(char* path){
 }
 
 void printCurVer(char* manifest){
-    int i =0;
+    int skip = 1;
+    char *ptr = manifest, *startWord = manifest;
+    while(*ptr != '\n' && *ptr == '\0') ptr++;
+    //ptr is now either at \n or \0. \n means there's more stuff
+    while(*ptr != '\0'){
+        while(*ptr != ' ' && *ptr != '\0') ptr++;
+        if(skip){
+            skip = 0;
+            ptr++;
+            continue;
+        }
+        skip = 1;
+        *ptr = '\0';
+        printf("%s", startWord);
+        ptr += 18; //skip over the hash code. Go PAST the newline (either # or \0)
+        startWord = ptr-1; //start of word is AT the newline;
+    }
+    printf("%s", startWord);
 }
