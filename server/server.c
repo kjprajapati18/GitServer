@@ -21,6 +21,8 @@ int readCommand(int socket, char** buffer);
 int createProject(int socket, char* name);
 //char* readNClient(int socket, int size);
 void* performDestroy(void*);
+void* performCurVer(void*);
+
 char* messageHandler(char* msg);
 
 int killProgram = 0;
@@ -152,7 +154,10 @@ int main(int argc, char* argv[]){
 }
 
 void* switchCase(void* arg){
-    int newsockfd = ((data*) arg)->socketfd;
+    //RECREATE ALL PERFORM FUNCTIONS TO TAKE IN ARGS CUZ SOCKET CHANGES
+    //AND WE PASS SOCKET AFTER CHECKIGN THROUGH THE SWITCH CASE
+    int newsockfd = ((data*) arg)->socketfd; //PASS THIS IN
+
     int bytes;
     char cmd[3];
     bzero(cmd, 3);
@@ -173,6 +178,8 @@ void* switchCase(void* arg){
         case destroy: performDestroy(arg);
             printLL(((data*)arg)->head);
             break;
+        case currentversion:
+            performCurVer(arg);
     }
     close(newsockfd);
 }
@@ -180,7 +187,7 @@ void* switchCase(void* arg){
 void* performDestroy(void* arg){
     //fully lock this one prob
     int socket = ((data*) arg)->socketfd;
-    sleep(5);
+    
     int bytes = readSizeClient(socket);
     char projName[bytes + 1];
     read(socket, projName, bytes);
@@ -443,4 +450,63 @@ void joinAll(threadList* head){
         head = temp;
     }
     
+}
+
+void* performCurVer(void* arg){
+    //fully lock this one prob
+    int socket = ((data*) arg)->socketfd;
+    
+    int bytes = readSizeClient(socket);
+    char projName[bytes + 1];
+    read(socket, projName, bytes);
+    projName[bytes] = '\0';
+    
+    node* found = findNode(((data*) arg)->head, projName);
+    pthread_mutex_lock(&(found->mutex));
+    int check = 0;
+    if(found == NULL) {
+        printf("Could not find project with that name. Cannot find current version (%s)\n", projName);
+        char* returnMsg = messageHandler("Could not find project with that name to perform current verison");
+        int bytecheck = write(socket, returnMsg, strlen(returnMsg));
+        free(returnMsg);
+    }else{
+        check = sendManifest(socket);
+        if(check == 0)printf("Successfully sent current version to client\n");
+        else printf("Something went wrong with sendManifest\n");
+    }
+    pthread_mutex_unlock(&(found->mutex));
+}
+
+//Writes #:Data for manifest 
+//# is the size of the Manifest while Data is the actual content
+int sendManifest(int sockfd, char* projectName){
+    int projNameLen = strlen(projectName);
+    char manPath[projNameLen + 12];
+    sprintf(manPath, "%s/.Manifest", projectName);
+    int manifest = open(manPath, O_RD);
+    int fileSize = lseek(manifest, 0, SEEK_END);
+    lseek(manifest, 0, SEEK_SET);
+    
+    printf("%d\n", fileSize);
+    char* fileData = (char*) malloc(sizeof(char) * (fileSize+13)); bzero(fileData, fileSize+13);
+    
+    sprintf(fileData, "%d:", fileSize);
+
+    int status = 0, bytesRead = 0, start = strlen(fileData);
+    
+    do{
+        status = read(manifest, fileData + bytesRead+start, fileSize - bytesRead);
+        bytesWritten += status;
+    }while(status > 0 && bytesRead < fileSize);
+    
+    close(manifest);
+    if(status < 0){
+        free(fileData);
+        return 1;
+    }
+
+    write(socket, fileData, start+bytesRead);    
+    free(fileData);
+    return 0;
+
 }
