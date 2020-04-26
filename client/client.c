@@ -56,6 +56,28 @@ int main(int argc, char* argv[]){
         writeConfigureFile(argv[2], argv[3]);
         return 0;
     }
+    //figure out what command to operate
+    command mode = argCheck(argc, argv[1]);
+    if(mode == ERROR){
+        printf("Please enter a valid command with the valid arguments\n");
+        return -1;
+    }
+    if(mode == add){
+        if(argc != 4){
+            printf("Not enough arguments for this command. Proper usage is: ./WTF add <projectName> <filename>");
+            return -1;
+        }
+        performAdd(argv);
+        return 0;
+    }
+    else if(mode == rmv){
+        if(argc != 4){
+            printf("Not enough arguments for this command. Proper useage is: ./WTF remove <projectName> <fileName>");
+            return -1;
+        }
+        performRemove(argv);
+        return 0;
+    }
 
     int configureFile = open(".configure", O_RDONLY);
     if(configureFile < 0) error("Fatal Error: There is no configure file. Please use ./WTF configure <IP/host> <Port>\n");
@@ -63,12 +85,7 @@ int main(int argc, char* argv[]){
     close(configureFile);
 
 
-    //figure out what command to operate
-    command mode = argCheck(argc, argv[1]);
-    if(mode == ERROR){
-        printf("Please enter a valid command with the valid arguments\n");
-        return -1;
-    }
+    
 
     //connectToServer(ipAddr, port);
     struct sockaddr_in servaddr;
@@ -141,20 +158,6 @@ int main(int argc, char* argv[]){
             printf("%s\n", returnMsg);
             //printf("%s\n", hash("hashtest.txt"));
             break;}
-        case add: 
-            if(argc != 4){
-                printf("Not enough arguments for this command. Proper usage is: ./WTF add <projectName> <filename>");
-                return -1;
-            }
-            performAdd(argv);
-            break;
-        case rmv: 
-            if(argc != 4){
-                printf("Not enough arguments for this command. Proper useage is: ./WTF remove <projectName> <fileName>");
-                return -1;
-            }
-            performRemove(argv);
-            break;
         case currentversion:{
             char sendFile[12+strlen(argv[2])];
             sprintf(sendFile, "%d:%s", strlen(argv[2]), argv[2]);
@@ -283,9 +286,6 @@ int performAdd(char** argv){
     
 }
 
-//if A and then going to be removed, must remove the whole line
-//check case where it has a tag
-
 //ADD AND REMOVE SHOULD NOT FAIL IF WE CAN'T CONNECT TO SERVER
 int performRemove(char** argv){
     DIR* d = opendir(argv[2]);
@@ -325,7 +325,7 @@ int performRemove(char** argv){
     }while(status != 0);
 
     manifest[size] = '\0';
-    char newmani[size+3]; bzero(newmani, size+3);
+    //char newmani[size+3]; bzero(newmani, size+3);
     char* filename = (char*) malloc(len3);
     int i;
     for(i = 0; i < size + 1; i++){
@@ -346,6 +346,23 @@ int performRemove(char** argv){
                     close(manfd);
                     return -1;
                 }
+                else if(manifest[i-2] == 'A'){
+                    char newmani[size - len1 - len2 - 40]; bzero(newmani, size - len1 - len2 -40);
+                    strncpy(newmani, i-4);
+                    strcpy(newmani, &manifest[i+len1+len2+ 37]);
+                    close(manfd);
+                    remove(manPath);
+                    int newfd = open(manPath, O_CREAT | O_WRONLY, 00600);
+                    write(newfd, newmani);
+                    free(filename);
+                    free(manPath);
+                    free(writefile);
+                    close(newfd);
+                    printf("Removed file from manifest\n");
+                    return 0;
+                }
+                //did not remove file so need to add R
+                char newmani[size+3]; bzero(newmani, size+3);
                 //did not remove file so need to add R
                 strncpy(newmani, manifest, i-1); //-1 is to remove the space
                 strcat(newmani, "R ");
