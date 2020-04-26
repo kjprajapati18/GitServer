@@ -209,7 +209,8 @@ int performAdd(char** argv){
     sprintf(writefile, "./%s/%s ", argv[2], argv[3]);
 
     //Check if we can open/has the file
-    writefile[strlen(writefile)-1] = '\0';
+    writefile[len3-2] = '\0';
+    //printf("Size: %d, writeFile: %s", len3-1, writefile);
     char* hashcode = hash(writefile);
     if(hashcode == NULL){
         printf("Fatal Error: Cannot open/hash file. Make sure it exists with write permissions\n");
@@ -217,7 +218,7 @@ int performAdd(char** argv){
         free(manPath);
         return 1;
     }
-    writefile[strlen(writefile)-1] = ' ';
+    writefile[len3-2] = ' ';
 
     //check if if file already exists in manifest:
     int manfd = open(manPath, O_RDONLY);
@@ -576,7 +577,7 @@ char* hash(char* path){
     int bytes;
     unsigned char buffer[256];
     if(fd < 0){
-        printf("cannot open file");
+        //printf("cannot open file");
         return NULL;
     }
     MD5_Init(&mdContext);
