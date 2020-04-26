@@ -15,13 +15,14 @@
 #include "../sharedFunctions.h"
 
 pthread_mutex_t headLock; 
-void* performCreate(void*);
+void* performCreate(int, void*);
 void* switchCase(void* arg);
 int readCommand(int socket, char** buffer);
 int createProject(int socket, char* name);
 //char* readNClient(int socket, int size);
-void* performDestroy(void*);
-void* performCurVer(void*);
+void* performDestroy(int, void*);
+void* performCurVer(int, void*);
+void performHistory(int sockfd, void*);
 
 char* messageHandler(char* msg);
 int sendFile(int sockfd, char* pathName);
@@ -50,7 +51,7 @@ typedef struct _data{
     int socketfd;
 } data;
 
-void performHistory(int sockfd, node* head);
+
 node* addNode(node* head, char* name);
 node* removeNode(node* head, char* name);
 node* findNode(node* head, char* name);
@@ -151,6 +152,7 @@ int main(int argc, char* argv[]){
 
     //Join all the threads
     joinAll(threadHead);
+    printf("Successfully closed all sockets and threads!\n");
     //socket is already closed
     return 0;
 }
@@ -159,7 +161,6 @@ void* switchCase(void* arg){
     //RECREATE ALL PERFORM FUNCTIONS TO TAKE IN ARGS CUZ SOCKET CHANGES
     //AND WE PASS SOCKET AFTER CHECKIGN THROUGH THE SWITCH CASE
     int newsockfd = ((data*) arg)->socketfd; //PASS THIS IN
-
     int bytes;
     char cmd[3];
     bzero(cmd, 3);
@@ -174,25 +175,26 @@ void* switchCase(void* arg){
     printf("Chosen Command: %d\n", mode);
 
     switch(mode){
-        case create: performCreate(arg);
+        case create:
+            performCreate(newsockfd, arg);
             printLL(((data*)arg)->head);
             break;
-        case destroy: performDestroy(arg);
+        case destroy:
+            performDestroy(newsockfd, arg);
             printLL(((data*)arg)->head);
             break;
         case currentversion:
-            performCurVer(arg);
+            performCurVer(newsockfd, arg);
             break;
         case history:
-            performHistory(newsockfd, ((data*) arg)->head);
+            performHistory(newsockfd, arg);
             break;
     }
     close(newsockfd);
 }
 
-void* performDestroy(void* arg){
+void* performDestroy(int socket, void* arg){
     //fully lock this one prob
-    int socket = ((data*) arg)->socketfd;
     
     int bytes = readSizeClient(socket);
     char projName[bytes + 1];
@@ -270,9 +272,8 @@ char* messageHandler(char* msg){
 }
 
 
-void* performCreate(void* arg){
-    int socket = ((data*) arg)->socketfd;
-    printf("Succesful create message received\n");
+void* performCreate(int socket, void* arg){
+
     printf("Attempting to read project name...\n");
     char* projectName = readNClient(socket, readSizeClient(socket));
     //find node check to see if it already exists in linked list
@@ -458,8 +459,8 @@ void joinAll(threadList* head){
     
 }
 
-void performHistory(int socket, node* head){
-    
+void performHistory(int socket, void* arg){
+    node* head = ((data*) arg)->head;
     int bytes = readSizeClient(socket);
     char projName[bytes + 1];
     read(socket, projName, bytes);
@@ -487,12 +488,9 @@ void performHistory(int socket, node* head){
     }
 }
 
-void* performCurVer(void* arg){
+void* performCurVer(int socket, void* arg){
     //fully lock this one prob
-    int socket = ((data*) arg)->socketfd;
-    
     int bytes = readSizeClient(socket);
-    
     char projName[bytes + 1];
     read(socket, projName, bytes);
     projName[bytes] = '\0';
