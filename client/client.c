@@ -44,7 +44,6 @@ char* hash(char* path);
 int performCreate(int socket, char** argv);
 void printCurVer(char* manifest);
 int performUpdate(int sockfd, char** argv);
-//int connectToServer(char* ipAddr, int port);
 command argCheck(int argc, char* arg);
 void advanceToken(char** ptr, char delimiter);
 
@@ -143,7 +142,20 @@ int main(int argc, char* argv[]){
             performUpdate(sockfd, argv);
             break; 
         case upgrade: 
-            printf("upgrade\n");
+            int len = strlen(argv[1]);
+            char dotfilepath[len + 11]; dotfilepath[0] = '\0';
+            sprintf(dotfilepath, "%s/.Update", argv[1]);
+            if(open(dotfilepath, O_RDONLY)< 0) {
+                printf("No openable update file available. First run an update before upgrading\n");
+                return -1;
+            }
+            bzero(dotfilepath, len+9);
+            sprintf(dotfilepath, "%s/.Conflict", argv[1]);
+            if(open(dotfilepath, O_RDONLY) > 0){
+                printf("Conflicts exist. Please resolve all conflicts and update");
+                return -1;
+            }
+            performUpgrade(sockfd, argv);
             break;
         case commit: 
             printf("commit\n");
@@ -490,7 +502,10 @@ command argCheck(int argc, char* arg){
         if(argc == 3) mode = update;
         else printf("Fatal Error: update requires only 1 additional argument (project name)\n");
     }
-    else if(strcmp(arg, "upgrade") == 0) mode = upgrade;
+    else if(strcmp(arg, "upgrade") == 0) {
+        if(argc == 2) mode = upgrade;
+        else printf("Fatal Error: upgrade requires one argument (project name). Proper usage is ./WTF upgrade <projectName>\n");
+    }
     else if(strcmp(arg, "commit") == 0) mode = commit;
     else if(strcmp(arg, "create") == 0){
         if(argc == 3) mode = create;
@@ -514,17 +529,6 @@ command argCheck(int argc, char* arg){
     
     return mode;
 }
-
-/*int readSizeServer(int socket){
-    int status = 0, bytesRead = 0;
-    char buffer[11];
-    do{
-        status = read(socket, buffer+bytesRead, 1);
-        bytesRead += status;
-    }while(status > 0 && buffer[bytesRead-1] != ':');
-    buffer[bytesRead-1] = '\0';
-    return atoi(buffer);
-}*/
 
 int performCreate(int sockfd, char** argv){
     int nameSize = strlen(argv[2]);
@@ -677,6 +681,10 @@ int performUpdate(int sockfd, char** argv){
     close(conflictfd);
     //Add checkfor conflict being empty and remove if it is
     return 0;
+}
+
+int performUpgrade(int sockfd, char** argv){
+    
 }
 
 char* hash(char* path){
