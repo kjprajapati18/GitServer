@@ -188,11 +188,7 @@ int main(int argc, char* argv[]){
     return 0;
 }
 
-//add case where it was R before
-//if you want to add answer to the case above
-//if R already-> add file: remove the R
-//ADD AND REMOVE SHOULD NOT FAIL IF WE CAN'T CONNECT TO SERVER
-//Exists function to make sure file exists
+
 int performAdd(char** argv){
     DIR* d = opendir(argv[2]);
     
@@ -240,28 +236,45 @@ int performAdd(char** argv){
         bytesRead += status;
     }while(status != 0);
     manifest[size] = '\0';
-    char* ptr = manifest;
     printf("%s", manifest);
     char* filename = (char*) malloc(len3);
-    while(*ptr != '\0'){
-        while(*ptr != '.' && *ptr!= '\0'){
-            ptr++;
+    int i = 0;
+    for(i = 0; i <= size; i++){
+        if(manifest[i] == '.'){
+            strncpy(filename, &manifest[i], len3);
+            filename[len3-1] = '\0';
+            printf("%s\n", filename);
+            printf("%s\n", writefile);
+            if(!strcmp(filename, writefile)){
+                //two cases: R already and can be added or would be adding duplicate
+                //Removed alraedy
+                if(manifest[i - 2] == 'R'){
+                    printf("Previously removed and to be added now.\n");
+                    char newmani[size-1]; bzero(newmani, size-1);
+                    strncpy(newmani, manifest, i-2);
+                    strcat(newmani, &manifest[i-1]);
+                    printf("newmani: %s\n", newmani);
+                    close(manfd);
+                    remove(manPath);
+                    int newfd = open(manPath, O_CREAT | O_WRONLY, 00600);
+                    writeString(newfd, newmani);
+                    free(filename);
+                    free(manPath);
+                    free(writefile);
+                    close(newfd);
+                    printf("added file to manifest after removing it");
+                    return 0;
+                }
+                //found file so cannot add duplicate
+                printf("Cannot add filename because it already exists in manifest\n");
+                free(filename);
+                free(manPath);
+                free(writefile);
+                close(manfd);
+                return -1;
+            }
+            else while(manifest[i] != '\n' && manifest[i] != '\0') i++;
         }
-        if(*ptr == '\0') break;
-        strncpy(filename, ptr, len3);
-        filename[len3-1] = '\0';
-        printf("%s\n", filename);
-        printf("%s\n", writefile);
-        if(!strcmp(filename, writefile)){
-            //found file so cannot add duplicate
-            printf("Cannot add filename because it already exists!\n");
-            free(filename);
-            free(manPath);
-            free(writefile);
-            close(manfd);
-            return -1;
-        }
-        else while(*ptr != '\n' && *ptr != '\0') ptr++;
     }
     close(manfd);
     //add it
@@ -270,7 +283,6 @@ int performAdd(char** argv){
     manfd = open(manPath, O_WRONLY | O_APPEND);
     //lseek(manfd, 0, SEEK_END);
     if(manfd < 0) error("Could not open manifest");
-
     //sprintf(writefile, "./%s/%s ", argv[1], argv[2]);
     writeString(manfd, "0A ");
     writeString(manfd, writefile);
@@ -286,7 +298,6 @@ int performAdd(char** argv){
     
 }
 
-//ADD AND REMOVE SHOULD NOT FAIL IF WE CAN'T CONNECT TO SERVER
 int performRemove(char** argv){
     DIR* d = opendir(argv[2]);
     if(!d){
@@ -303,12 +314,6 @@ int performRemove(char** argv){
     char* writefile = (char*) malloc(len3); 
     bzero(writefile, len3);
     sprintf(writefile, "./%s/%s ", argv[2], argv[3]);
-    /*int filefd = open(writefile, O_RDONLY);
-    if(filefd < 0){
-        free(manPath);
-        free(writefile);
-        printf("Fatal Eror: File does not exist\n");
-    }*/
     int manfd = open(manPath, O_RDONLY);
     int size = (int) lseek(manfd, 0, SEEK_END);
     printf("Size: %d\n", size);
@@ -347,13 +352,18 @@ int performRemove(char** argv){
                     return -1;
                 }
                 else if(manifest[i-2] == 'A'){
-                    char newmani[size - len1 - len2 - 40]; bzero(newmani, size - len1 - len2 -40);
-                    strncpy(newmani, i-4);
-                    strcpy(newmani, &manifest[i+len1+len2+ 37]);
+                    printf("A key before\n");
+                    printf("%d\n", size - len1 -len2 - 39);
+                    char newmani[size - len1 - len2 - 39]; bzero(newmani, size - len1 - len2 -39);
+                    strncpy(newmani, manifest, i-3);
+                    printf("newmani after first strncpy: %s\n", newmani);
+                    strcat(newmani, &manifest[i+len1+len2+ 37]);
+                    printf("newmani after second strcpy: %s\n", newmani);
                     close(manfd);
                     remove(manPath);
                     int newfd = open(manPath, O_CREAT | O_WRONLY, 00600);
-                    write(newfd, newmani);
+                    printf("newfd: %d\n", newfd);
+                    writeString(newfd, newmani);
                     free(filename);
                     free(manPath);
                     free(writefile);
