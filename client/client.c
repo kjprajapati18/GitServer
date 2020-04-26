@@ -133,24 +133,25 @@ int main(int argc, char* argv[]){
             printf("%d\n", bytes);
             read(sockfd, returnMsg, bytes);
             printf("%s\n", returnMsg);
-            printf("%s\n", hash("hashtest.txt"));
             break;}
         case add: 
+            if(argc != 4){
+                printf("Not enough arguments for this command. Proper usage is: ./WTF add <projectName> <filename>");
+                return -1;
+            }
             performAdd(argv);
-            printf("add\n");
             break;
         case rmv: 
-            read(sockfd, buffer, 32);
-            printf("%s\n", buffer);
-            printf("remove\n");
+            if(argc != 4){
+                printf("Not enough arguments for this command. Proper useage is: ./WTF remove <projectName> <fileName>");
+                return -1;
+            }
+            performRemove(argv);
             break;
         case currentversion:{
             char sendFile[12+strlen(argv[2])];
             sprintf(sendFile, "%d:%s", strlen(argv[2]), argv[2]);
             write(sockfd, sendFile, strlen(sendFile));
-            
-            readSizeClient
-
             break;}
         case history: 
             read(sockfd, buffer, 32);
@@ -168,25 +169,109 @@ int main(int argc, char* argv[]){
     return 0;
 }
 
+//add case where it was R before
+//if you want to add answer to the case above
+//if R already-> add file: remove the R
+
 int performAdd(char** argv){
-    DIR* d = opendir(argv[1]);
+    DIR* d = opendir(argv[2]);
     
     if(!d){
         printf("Project does not exist locally. Cannot execute command.\n");
         return -1;
     }
+    closedir(d);
     
-    int len1 = strlen(argv[1]);
+    int len1 = strlen(argv[2]);
     char* manPath = (char*) malloc(len1 + 11); bzero(manPath, len1+11);
-    sprintf(manPath, "%s/%s", argv[1], ".Manifest");
-    int len2 = strlen(argv[2]);
+    sprintf(manPath, "%s/%s", argv[2], ".Manifest");
+    int len2 = strlen(argv[3]);
 
-    int len3 = len1+5+len2;
+    int len3 = len1+4+len2;
     char* writefile = (char*) malloc(len3); 
-    bzero(writefile, len3);
-    sprintf(writefile, "./%s/%s ", argv[1], argv[2]);
+    sprintf(writefile, "./%s/%s", argv[2], argv[3]);
 
     //check if if file already exists in manifest:
+    int manfd = open(manPath, O_RDONLY);
+    int size = (int) lseek(manfd, 0, SEEK_END);
+    printf("Size: %d\n", size);
+    lseek(manfd, 0, SEEK_SET);
+    char manifest[size+1];
+    int bytesRead=0, status=0;
+    do{
+        status = read(manfd, manifest + bytesRead, size-bytesRead);
+        if(status < 0){
+            close(manfd);
+            error("Fatal Error: Unable to read .Manifest file\n");
+        }
+        bytesRead += status;
+    }while(status != 0);
+    manifest[size] = '\0';
+    char* ptr = manifest;
+    printf("%s", manifest);
+    char* filename = (char*) malloc(len3);
+    while(*ptr != '\0'){
+        while(*ptr != '.' && *ptr!= '\0'){
+            ptr++;
+        }
+        if(*ptr == '\0') break;
+        strncpy(filename, ptr, len3-1);
+        filename[len3-1] = '\0';
+        printf("%s\n", filename);
+        printf("%s\n", writefile);
+        if(!strcmp(filename, writefile)){
+            //found file so cannot add duplicate
+            printf("Cannot add filename because it already exists!\n");
+            free(filename);
+            free(manPath);
+            free(writefile);
+            close(manfd);
+            return -1;
+        }
+        else while(*ptr != '\n' && *ptr != '\0') ptr++;
+    }
+    close(manfd);
+    //add it
+    printf("%s\n", writefile);
+    printf("%d\n", strlen(writefile));
+    manfd = open(manPath, O_WRONLY| O_APPEND);
+    if(manfd < 0) error("Could not open manifest");
+    char* hashcode = hash(writefile);
+    //sprintf(writefile, "./%s/%s ", argv[1], argv[2]);
+    writeString(manfd, "0A ");
+    writeString(manfd, writefile);
+    writeString(manfd, " ");
+    writeString(manfd, hashcode);
+    writeString(manfd, "\n");
+    free(hashcode);
+    free(filename);
+    free(manPath);
+    free(writefile);
+    close(manfd);
+    printf("Successfully added file to .Manifest\n");
+    return 0;
+    
+}
+
+//if A and then going to be removed, must remove the whole line
+
+int performRemove(char** argv){
+    DIR* d = opendir(argv[2]);
+    if(!d){
+        printf("Project does not exist locally. Cannot remove file from this project manifest");
+        closedir(d);
+        return -1;
+    }
+    closedir(d);
+    int len1 = strlen(argv[2]);
+    char* manPath = (char*) malloc(len1 + 11); bzero(manPath, len1+11);
+    sprintf(manPath, "%s/%s", argv[2], ".Manifest");
+    int len2 = strlen(argv[3]);
+    int len3 = len1+4+len2;
+    char* writefile = (char*) malloc(len3); 
+    bzero(writefile, len3);
+    sprintf(writefile, "./%s/%s ", argv[2], argv[3]);
+
     int manfd = open(manPath, O_RDONLY);
     int size = (int) lseek(manfd, 0, SEEK_END);
     printf("Size: %d\n", size);
@@ -202,37 +287,49 @@ int performAdd(char** argv){
     }while(status != 0);
 
     manifest[size] = '\0';
-    char* ptr = manifest;
-    while(*ptr != '\0'){
-        while(*ptr != '.' && *ptr!= '\0'){
-            ptr++;
+    char newmani[size+3]; bzero(newmani, size+3);
+    char* filename = (char*) malloc(len3);
+    int i;
+    for(i = 0; i < size + 1; i++){
+        if(manifest[i] == '.'){
+            strncpy(filename, &manifest[i], len3-1);
+            filename[len3-1] = '\0';
+            //found file to remove
+            if(!strcmp(filename, writefile)){
+                //already removed this file
+                if(manifest[i -2] == 'R') {
+                    printf("Already removed this file from manifest\n"); 
+                    free(filename);
+                    free(manPath);
+                    free(writefile);
+                    close(manfd);
+                    return -1;
+                }
+                //did not remove file so need to add R
+                strncpy(newmani, manifest, i);
+                strcat(newmani, "R ");
+                strcat(newmani, &manifest[i]);
+                //new mani now has full new manifest string
+                close(manfd);
+                remove(manPath);
+                int newfd = open(manPath, O_CREAT | O_WRONLY, 00600);
+                writeString(newfd, newmani);
+                free(filename);
+                free(manPath);
+                free(writefile);
+                close(newfd);
+                printf("Successfully removed file from manifest.\n");
+                return 0;
+            }
+            else while(manifest[i] != '\n' && manifest[i] != '\0') i++;
         }
-        if(*ptr == '\0') break;
-        char* filename = (char*) malloc(len3);
-        strncpy(filename, ptr, len3-1);
-        filename[len3-1] = '\0';
-        if(!strcmp(filename, writefile)){
-            printf("Cannot add filename because it already exists!\n");
-            return -1;
-        }
-        else while(*ptr != '\n' && *ptr != '\0') ptr++;
     }
+    free(manPath);
+    free(filename);
+    free(writefile);
     close(manfd);
-
-    //add it
-    manfd = open(writefile, O_WRONLY| O_APPEND);
-    if(manfd < 0) error("Could not open filename");
-    //sprintf(writefile, "./%s/%s ", argv[1], argv[2]);
-    writeString(manfd, "0 L ");
-    writeString(manfd, writefile);
-    char* hashcode = hash(writefile);
-    writeString(manfd, hashcode);
-    writeString(manfd, "\n");
-    printf("Successfully added file to .Manifest");
-    
-}
-
-int performRemove(char** argv){
+    printf("Fatal Error: Could not find filename to remove in .Manifest\n");
+    return -1;
 
 }
 
