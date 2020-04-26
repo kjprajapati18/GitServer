@@ -8,7 +8,8 @@ sharedFunctions.o: sharedFunctions.c
 avl.o: avl.c
 	gcc -c avl.c
 
-clean: sharedFunctions.o client/WTF server/WTFserver
+clean: avl.o sharedFunctions.o client/WTF server/WTFserver
 	rm sharedFunctions.o
+	rm avl.o
 	rm client/WTF
 	rm server/WTFserver

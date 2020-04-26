@@ -32,5 +32,8 @@ void freeAvl(avlNode*);
 //void print2DTree(avlNode* root, int space);
 //Find AVL Node given the token
 int findAVLNode(avlNode**, avlNode*, char*);
+avlNode* fillAvl(char**);
+void advanceToken(char**, char);
+void printAVLList(avlNode*);
 
 #endif

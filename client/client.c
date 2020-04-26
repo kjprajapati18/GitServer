@@ -14,12 +14,18 @@
 #include <signal.h>
 
 #include "../sharedFunctions.h"
+#include "../avl.h"
+
 /* TODO LIST:::
     Create .h and .c files
     Move the argc checks to argCheck instead of the switch cases.
     Create a function for generating filePath given proj name && file
     Create a function that returns 2 .Manifest files (SHARED FUNCTIONS)
         Use in update (clientside) && commit(serverside) 
+    
+    REMEMBER THAT WHEN WE SUBMIT, SERVER AND CLIENT HAVE TO BE IN THE SAME DIRECTORY
+        This might change how things compile. Makefile needs to be changed to reflect new client/server.c paths
+        We also may need to change the #include headers
 */
 
 int sockfd;
@@ -615,11 +621,18 @@ int performUpdate(int sockfd, char** argv){
     remove(conflictPath);
     int conflictfd = open(conflictPath, O_WRONLY);
 
-    int serverFileVerNum = 0, clientFileVerNum=0;
-    char *serverFileVer,*clientFileVer;  //Store the start of each line 
-    char *serverFilePath, *clientFilePath;
-    char *serverFileHash, *clientFileHash, *liveHash;
-    while(*serverPtr != '\0' && *clientPtr != '\0'){
+    //int serverFileVerNum = 0, clientFileVerNum=0;
+    avlNode *serverHead = NULL, *clientHead = NULL;
+    char *liveHash; 
+
+    //Tokenize version #, filepath, and hash code. Put it into an avl tree organized by file path
+    serverHead = fillAvl(&serverPtr);
+    clientHead = fillAvl(&clientPtr);
+
+    printAVLList(serverHead);
+    printAVLList(clientHead);
+
+    /*while(*serverPtr != '\0' && *clientPtr != '\0'){
         //Extract the version #, filepath, and hash code from this line of the manifests
 
         //Points to beginning of File version (so we are not duplicating any data)
@@ -653,8 +666,11 @@ int performUpdate(int sockfd, char** argv){
         printf("Client File Path: %s\n", clientFilePath);
         printf("Client File Hash: %s\n\n", clientFileHash);*/
 
-    }
+        //Check for 
 
+    //}
+    freeAvl(serverHead);
+    freeAvl(clientHead);
     free(serverMan);
     free(clientMan);
     close(updatefd);
@@ -713,9 +729,4 @@ void printCurVer(char* manifest){
         startWord = ptr-1; //start of word is AT the newline;
     }
     printf("%s", startWord);
-}
-void advanceToken(char** ptr, char delimiter){
-    while(*(*ptr) != delimiter) (*ptr)++;
-    *(*ptr) = '\0';
-    (*ptr)++;
 }

@@ -164,3 +164,48 @@ int findAVLNode(avlNode** selectedNode, avlNode* head, char* token){
     }
     return status;
 }
+
+//Ptr should initially be after the first new line (start at first entry)
+avlNode* fillAvl(char** manifestPtr){
+    
+    avlNode* head = NULL;
+    char *fileVer, *filePath, *fileHash; //Store the start of each line
+    
+    while(*(*manifestPtr) != '\0'){
+        //Points to beginning of File version (so we are not duplicating any data)
+        fileVer = *manifestPtr;
+        //finds the next space, since that is the end of the file version.
+        //Sets that space to be \0 so that file version string can be accessed by FileVer pointers;
+        //Advance the ptr 1 extra time to get to the start of the next token
+        //Convert file version to int
+        advanceToken(manifestPtr, ' ');
+
+        //Perform a similar logic to extract path and Hash
+        filePath = *manifestPtr;
+        advanceToken(manifestPtr, ' ');
+
+        fileHash = *manifestPtr;
+        advanceToken(manifestPtr, '\n');
+
+        //Add node to AVL
+        head = insert(head, fileVer, filePath, fileHash);
+    }
+    
+    return head;
+}
+
+void advanceToken(char** ptr, char delimiter){
+    while(*(*ptr) != delimiter) (*ptr)++;
+    *(*ptr) = '\0';
+    (*ptr)++;
+}
+
+void printAVLList(avlNode* head){
+    if(head == NULL) return;
+    printf("File Ver: %s/%d\n", head->ver, head->verNum);
+    printf("File Path: %s\n", head->path);
+    printf("File Hash: %s\n\n", head->code);
+    printAVLList(head->left);
+    printAVLList(head->right);
+
+}
