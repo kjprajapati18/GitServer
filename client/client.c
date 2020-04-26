@@ -15,7 +15,11 @@
 
 #include "../sharedFunctions.h"
 /* TODO LIST:::
-    Move read commands to a separate file, since they are exactly the same.
+    Create .h and .c files
+    Move the argc checks to argCheck instead of the switch cases.
+    Create a function for generating filePath given proj name && file
+    Create a function that returns 2 .Manifest files (SHARED FUNCTIONS)
+        Use in update (clientside) && commit(serverside) 
 */
 
 int sockfd;
@@ -33,6 +37,7 @@ char* hash(char* path);
 
 int performCreate(int socket, char** argv);
 void printCurVer(char* manifest);
+int performUpdate(int sockfd, char** argv);
 //int connectToServer(char* ipAddr, int port);
 command argCheck(int argc, char* arg);
 
@@ -55,6 +60,14 @@ int main(int argc, char* argv[]){
     if(configureFile < 0) error("Fatal Error: There is no configure file. Please use ./WTF configure <IP/host> <Port>\n");
     ipAddr = getConfigInfo(configureFile, &port);
     close(configureFile);
+
+
+    //figure out what command to operate
+    command mode = argCheck(argc, argv[1]);
+    if(mode == ERROR){
+        printf("Please enter a valid command with the valid arguments\n");
+        return -1;
+    }
 
     //connectToServer(ipAddr, port);
     struct sockaddr_in servaddr;
@@ -90,14 +103,6 @@ int main(int argc, char* argv[]){
         return 0;
     }
     printf("successfully connected to host.\n");
-
-
-    //figure out what command to operate
-    command mode = argCheck(argc, argv[1]);
-    if(mode == ERROR){
-        close(sockfd);
-        return -1;
-    }
     
     char cmd[3]; bzero(cmd, 3);
     read(sockfd, buffer, 32);
@@ -111,6 +116,7 @@ int main(int argc, char* argv[]){
             break;
         case update:          
             printf("update\n");
+            performUpdate(sockfd, argv);
             break; 
         case upgrade: 
             printf("upgrade\n");
@@ -181,7 +187,7 @@ int main(int argc, char* argv[]){
 //add case where it was R before
 //if you want to add answer to the case above
 //if R already-> add file: remove the R
-
+//ADD AND REMOVE SHOULD NOT FAIL IF WE CAN'T CONNECT TO SERVER
 int performAdd(char** argv){
     DIR* d = opendir(argv[2]);
     
@@ -193,17 +199,18 @@ int performAdd(char** argv){
     
     int len1 = strlen(argv[2]);
     char* manPath = (char*) malloc(len1 + 11); bzero(manPath, len1+11);
-    sprintf(manPath, "%s/%s ", argv[2], ".Manifest");
+    sprintf(manPath, "%s/%s", argv[2], ".Manifest");
     int len2 = strlen(argv[3]);
-
+    
+    printf("Path: %s\n\n", manPath);
     int len3 = len1+5+len2;
     char* writefile = (char*) malloc(len3); 
     sprintf(writefile, "./%s/%s", argv[2], argv[3]);
 
     //check if if file already exists in manifest:
-    int manfd = open(manPath, O_RDONLY);
+    int manfd = open("./project2/.Manifest", O_RDONLY);
     int size = (int) lseek(manfd, 0, SEEK_END);
-    printf("Size: %d\n", size);
+    printf("Size: %d\nFD: %d\n", size, manfd);
     lseek(manfd, 0, SEEK_SET);
     char manifest[size+1];
     int bytesRead=0, status=0;
@@ -224,8 +231,8 @@ int performAdd(char** argv){
             ptr++;
         }
         if(*ptr == '\0') break;
-        strncpy(filename, ptr, len3);
-        filename[len3-1] = '\0';
+        strncpy(filename, ptr, len3-1);
+        filename[len3-2] = '\0';
         printf("%s\n", filename);
         printf("%s\n", writefile);
         if(!strcmp(filename, writefile)){
@@ -243,12 +250,14 @@ int performAdd(char** argv){
     //add it
     printf("%s\n", writefile);
     printf("%d\n", strlen(writefile));
-    manfd = open(manPath, O_WRONLY| O_APPEND);
+    manfd = open(manPath, O_WRONLY);
+    lseek(manfd, 0, SEEK_END);
     if(manfd < 0) error("Could not open manifest");
     char* hashcode = hash(writefile);
     //sprintf(writefile, "./%s/%s ", argv[1], argv[2]);
     writeString(manfd, "0A ");
     writeString(manfd, writefile);
+    writeString(manfd, " ");
     writeString(manfd, hashcode);
     writeString(manfd, "\n");
     free(hashcode);
@@ -264,6 +273,7 @@ int performAdd(char** argv){
 //if A and then going to be removed, must remove the whole line
 //check case where it has a tag
 
+//ADD AND REMOVE SHOULD NOT FAIL IF WE CAN'T CONNECT TO SERVER
 int performRemove(char** argv){
     DIR* d = opendir(argv[2]);
     if(!d){
@@ -324,7 +334,7 @@ int performRemove(char** argv){
                     return -1;
                 }
                 //did not remove file so need to add R
-                strncpy(newmani, manifest, i);
+                strncpy(newmani, manifest, i-1); //-1 is to remove the space
                 strcat(newmani, "R ");
                 strcat(newmani, &manifest[i]);
                 //new mani now has full new manifest string
@@ -427,22 +437,34 @@ int writeString(int fd, char* string){
 
 
 command argCheck(int argc, char* arg){
-    command mode;
+    command mode = ERROR;
+
     if(strcmp(arg, "checkout") == 0) mode = checkout;
-    else if(strcmp(arg, "update") == 0) mode = update;
+    else if(strcmp(arg, "update") == 0){
+        if(argc == 3) mode = update;
+        else printf("Fatal Error: update requires only 1 additional argument (project name)\n");
+    }
     else if(strcmp(arg, "upgrade") == 0) mode = upgrade;
     else if(strcmp(arg, "commit") == 0) mode = commit;
     else if(strcmp(arg, "create") == 0){
         if(argc == 3) mode = create;
-        else printf("Fatal Error: create requires only 1 argument (project name)\n");
+        else printf("Fatal Error: create requires only 1 additional argument (project name)\n");
     }
-    else if(strcmp(arg, "destroy") == 0) mode = destroy;
+    else if(strcmp(arg, "destroy") == 0){
+        if(argc == 3) mode = destroy;
+        else printf("Fatal Error: destroy requires only 1 additional argument (project name)\n");
+    }
     else if(strcmp(arg, "add") == 0) mode = add;
     else if(strcmp(arg, "remove") == 0) mode = rmv;
-    else if(strcmp(arg, "currentversion") == 0) mode = currentversion;
-    else if(strcmp(arg, "history") == 0) mode = history;
+    else if(strcmp(arg, "currentversion") == 0){
+        if(argc == 3) mode = currentversion;
+        else printf("Fatal Error: currentversion requires only 1 additional argument (project name)\n");
+    }
+    else if(strcmp(arg, "history") == 0){
+        if(argc == 3) mode = history;
+        else printf("Fatal Error: history requires only 1 additional argument (project name)\n");
+    }
     else if(strcmp(arg, "rollback") == 0) mode = rollback;
-    else mode = -1;
     
     return mode;
 }
@@ -482,6 +504,55 @@ int performCreate(int sockfd, char** argv){
     } else {
         printf("Fatal Error: Server was unable to create this project. The project may already exist\n");
     }
+    return 0;
+}
+
+int performUpdate(int sockfd, char** argv){
+    //Send project name to the server (TURN TO ONE FUNCTION)
+    int nameSize = strlen(argv[2]);
+    char sendFile[12+nameSize];
+    sprintf(sendFile, "%d:%s", nameSize, argv[2]);
+    write(sockfd, sendFile, strlen(sendFile)); 
+
+    //Check that the project exists locally (TURN TO ONE FUNCTION)
+    char clientManPath[nameSize+12];
+    sprintf(clientManPath, "%s/.Manifest", argv[2]);
+    int clientManfd = open(clientManPath, O_RDONLY);
+    if(clientManfd < 0){
+        printf("Fatal Error: The project does not exist locally\n");
+        return 1;
+    }
+
+    //Read Manifest from the server (TURN THIS AND NEXT INTO 1 FUNCTION);
+    readNClient(sockfd, readSizeClient(sockfd)); //Throw away the file path
+    int serverManSize = readSizeClient(sockfd);
+    char* serverMan = readNClient(sockfd, serverManSize);
+    
+    //Read our own Manifest (<- This should be own function too but also next with above comment)
+    int clientManSize = lseek(clientManfd, 0, SEEK_END);
+    char* clientMan = (char*) malloc((clientManSize+1)*sizeof(char));
+    lseek(clientManfd, 0, SEEK_SET);
+    int bytesRead = 0, status = 0;
+    do{
+        status = read(clientManfd, clientMan+bytesRead, clientManSize-bytesRead);
+        bytesRead += status;
+    }while(status > 0);
+    if(status < 0){
+        printf("Fatal Error: Found local .Manifest file but could not read it\n");
+        return 2;
+    }
+    clientMan[bytesRead] = '\0';
+
+    if(!strcmp(serverMan, clientMan)){
+        printf("Server and Client Manifests are the same!\n");
+    } else {
+        printf("There are differences between manifests\n");
+        printf("Client:\n%s", clientMan);
+        printf("Server:\n%s", serverMan);
+    }
+
+    free(serverMan);
+    free(clientMan);
     return 0;
 }
 

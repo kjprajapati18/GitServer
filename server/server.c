@@ -14,6 +14,12 @@
 
 #include "../sharedFunctions.h"
 
+/*  
+    --MOVE SENDFILE to shared functiosns
+    --We can make a readFindProject function since it is basically the same for all performs
+    --performCurVer && performUpdate are exact same code since all the server needs to do is send the Manifest
+    --Do stuff mentioned in client todo list
+*/
 pthread_mutex_t headLock; 
 void* performCreate(int, void*);
 void* switchCase(void* arg);
@@ -22,7 +28,8 @@ int createProject(int socket, char* name);
 //char* readNClient(int socket, int size);
 void* performDestroy(int, void*);
 void* performCurVer(int, void*);
-void performHistory(int sockfd, void*);
+void performHistory(int, void*);
+void performUpdate(int, void*);
 
 char* messageHandler(char* msg);
 int sendFile(int sockfd, char* pathName);
@@ -184,6 +191,7 @@ void* switchCase(void* arg){
             printLL(((data*)arg)->head);
             break;
         case currentversion:
+        case update:
             performCurVer(newsockfd, arg);
             break;
         case history:
@@ -514,6 +522,10 @@ void* performCurVer(int socket, void* arg){
     }
 }
 
+void performUpdate(int socket, void* arg){
+    return;
+}
+
 //Writes #:Data for manifest 
 //# is the size of the Manifest while Data is the actual content
 int sendFile(int sockfd, char* pathName){
@@ -546,5 +558,4 @@ int sendFile(int sockfd, char* pathName){
     write(sockfd, fileData, start+bytesRead);    
     free(fileData);
     return 0;
-
 }
