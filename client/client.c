@@ -263,6 +263,8 @@ int performAdd(char** argv){
 }
 
 //if A and then going to be removed, must remove the whole line
+//check case where it has a tag
+//if it cant open does it mean it doesnt exist? maybe permissions aint right yo
 
 int performRemove(char** argv){
     DIR* d = opendir(argv[2]);
@@ -276,15 +278,21 @@ int performRemove(char** argv){
     char* manPath = (char*) malloc(len1 + 11); bzero(manPath, len1+11);
     sprintf(manPath, "%s/%s", argv[2], ".Manifest");
     int len2 = strlen(argv[3]);
-    int len3 = len1+4+len2;
+    int len3 = len1+5+len2;
     char* writefile = (char*) malloc(len3); 
     bzero(writefile, len3);
     sprintf(writefile, "./%s/%s ", argv[2], argv[3]);
-
+    /*int filefd = open(writefile, O_RDONLY);
+    if(filefd < 0){
+        free(manPath);
+        free(writefile);
+        printf("Fatal Eror: File does not exist\n");
+    }*/
     int manfd = open(manPath, O_RDONLY);
     int size = (int) lseek(manfd, 0, SEEK_END);
     printf("Size: %d\n", size);
     char manifest[size+1];
+    lseek(manfd, 0, SEEK_SET);
     int bytesRead=0, status=0;
     do{
         status = read(manfd, manifest + bytesRead, size-bytesRead);
@@ -301,10 +309,13 @@ int performRemove(char** argv){
     int i;
     for(i = 0; i < size + 1; i++){
         if(manifest[i] == '.'){
-            strncpy(filename, &manifest[i], len3-1);
-            filename[len3-1] = '\0';
+            strncpy(filename, &manifest[i], len3);
+            filename[len3 - 1] = '\0';
+            printf("length: %d. filename: %s\n", strlen(filename), filename);
+            printf("lenght: %d, writefile: %s\n", strlen(writefile), writefile);
             //found file to remove
             if(!strcmp(filename, writefile)){
+                printf("files ar ethe same name\n");
                 //already removed this file
                 if(manifest[i -2] == 'R') {
                     printf("Already removed this file from manifest\n"); 
