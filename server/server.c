@@ -457,10 +457,11 @@ void* performCurVer(void* arg){
     int socket = ((data*) arg)->socketfd;
     
     int bytes = readSizeClient(socket);
+    
     char projName[bytes + 1];
     read(socket, projName, bytes);
     projName[bytes] = '\0';
-    
+    perror("here");
     node* found = findNode(((data*) arg)->head, projName);
     pthread_mutex_lock(&(found->mutex));
     int check = 0;
@@ -470,9 +471,10 @@ void* performCurVer(void* arg){
         int bytecheck = write(socket, returnMsg, strlen(returnMsg));
         free(returnMsg);
     }else{
-        check = sendManifest(socket);
+        perror("Here");
+        check = sendManifest(socket, projName);
         if(check == 0)printf("Successfully sent current version to client\n");
-        else printf("Something went wrong with sendManifest\n");
+        else printf("Something went wrong with sendManifest (%d)\n", check);
     }
     pthread_mutex_unlock(&(found->mutex));
 }
@@ -481,11 +483,15 @@ void* performCurVer(void* arg){
 //# is the size of the Manifest while Data is the actual content
 int sendManifest(int sockfd, char* projectName){
     int projNameLen = strlen(projectName);
+    printf("%d\n", projNameLen);
     char manPath[projNameLen + 12];
     sprintf(manPath, "%s/.Manifest", projectName);
-    int manifest = open(manPath, O_RD);
-    int fileSize = lseek(manifest, 0, SEEK_END);
-    lseek(manifest, 0, SEEK_SET);
+
+    printf("%s\n", manPath);
+    int manifest = open(manPath, O_RDONLY);
+    if(manifest < 0) return 2;
+    int fileSize = (int) lseek(manifest, 0, SEEK_END);
+    printf("%d\n", lseek(manifest, 0, SEEK_SET));
     
     printf("%d\n", fileSize);
     char* fileData = (char*) malloc(sizeof(char) * (fileSize+13)); bzero(fileData, fileSize+13);
@@ -496,7 +502,7 @@ int sendManifest(int sockfd, char* projectName){
     
     do{
         status = read(manifest, fileData + bytesRead+start, fileSize - bytesRead);
-        bytesWritten += status;
+        bytesRead += status;
     }while(status > 0 && bytesRead < fileSize);
     
     close(manifest);
@@ -505,7 +511,7 @@ int sendManifest(int sockfd, char* projectName){
         return 1;
     }
 
-    write(socket, fileData, start+bytesRead);    
+    write(sockfd, fileData, start+bytesRead);    
     free(fileData);
     return 0;
 
