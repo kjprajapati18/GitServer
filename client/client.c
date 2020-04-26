@@ -167,15 +167,66 @@ int main(int argc, char* argv[]){
 
 int performAdd(char** argv){
     DIR* d = opendir(argv[1]);
-    char* path = (char*) malloc(strlen(argv[1]) + 2 + argv[2]);
+    
     if(!d){
         printf("Project does not exist locally. Cannot execute command.");
-        return 0;
+        return -1;
     }
     else{
-        sprintf(path, "%s/%s", argv[1], argv[2]);
-        int fd = open(path, O_WRONLY, O_APPEND;
+        int len1 = strlen(argv[1]);
+        char* path = (char*) malloc(len1 + 11); bzero(path, sizeof(path));
+        sprintf(path, "%s/%s", argv[1], ".Manifest");
+        int len2 = strlen(argv[2]);
+        char* writefile = (char*) malloc(len1+5+len2); 
+        len3 = len1+5+len2;
+        bzero(writefile, len3);
+        sprintf(writefile, "./%s/%s ", argv[1], argv[2]);
+        //check if if file already exists in manifest:
+        int fd = open(path, O_RDONLY);
+        int size = (int) lseek(fd, 0, SEEK_END);
+        printf("Size: %d", size);
+        char manifest[size+1];
+        int bytesRead, status;
+        do{
+            status = read(config, manifest + bytesRead, size-bytesRead;
+            if(status < 0){
+                close(config);
+                error("Fatal Error: Unable to read .Manifest file\n");
+            }
+            bytesRead += status;
+        }while(status != 0);
+        manifest[size] = '\0';
+        char* ptr = manifest;
+        while(*ptr!= NULL){
+            while(*ptr != '.' && *ptr!= NULL){
+                ptr++;
+            }
+            if(*ptr == NULL) break;
+            char* filename = (char*) malloc(len3);
+            strncpy(filename, ptr, len3-1);
+            filename[len3-1] = '\0';
+            if(!strcmp(filename, writefile)){
+                printf("Cannot add filename because it already exists!");
+                return -1;
+            }
+            else while(*ptr != '\n' && *ptr != NULL) ptr++;
+        }
+        close(fd);
+        //add it
+        fd = open(path, O_WRONLY| O_APPEND);
+        if(fd < 0) error("Could not open filename");
+        sprintf(writefile, "./%s/%s ", argv[1], argv[2]);
+        writeString(fd, "0 L ");
+        writeString(fd, writefile);
+        char* hashcode = hash(path);
+        writeString(fd, hashcode);
+        writeString(fd, "\n");
+        printf("Successfully added file to .Manifest");
     }
+}
+
+int performRemove(char** argv){
+
 }
 
 void sendServerCommand(int socket, char* command, int comLen){

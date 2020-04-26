@@ -180,7 +180,6 @@ void* switchCase(void* arg){
 void* performDestroy(void* arg){
     //fully lock this one prob
     int socket = ((data*) arg)->socketfd;
-    sleep(5);
     int bytes = readSizeClient(socket);
     char projName[bytes + 1];
     read(socket, projName, bytes);
