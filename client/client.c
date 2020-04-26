@@ -147,17 +147,21 @@ int main(int argc, char* argv[]){
             char sendFile[12+strlen(argv[2])];
             sprintf(sendFile, "%d:%s", strlen(argv[2]), argv[2]);
             write(sockfd, sendFile, strlen(sendFile));
-            
+            readNClient(sockfd, readSizeClient(sockfd)); //Throw away the filePath
             char* manifest = readNClient(sockfd, readSizeClient(sockfd));
-            printf("Success! Current Version received:\n\n");
+            printf("Success! Current Version received:\n");
             printCurVer(manifest);
             free(manifest);
             break;}
-        case history: 
-            read(sockfd, buffer, 32);
-            printf("%s\n", buffer);
-            printf("history\n");
-            break;
+        case history:{
+            char sendFile[12+strlen(argv[2])];
+            sprintf(sendFile, "%d:%s", strlen(argv[2]), argv[2]);
+            write(sockfd, sendFile, strlen(sendFile));
+            readNClient(sockfd, readSizeClient(sockfd)); //Throw away the filePath
+            char* history = readNClient(sockfd, readSizeClient(sockfd));
+            printf("Success! History received:\n%s", history);
+            free(history);
+            break;}
         case rollback: 
             read(sockfd, buffer, 32);
             printf("%s\n", buffer);

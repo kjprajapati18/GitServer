@@ -24,6 +24,7 @@ void* performDestroy(void*);
 void* performCurVer(void*);
 
 char* messageHandler(char* msg);
+int sendFile(int sockfd, char* pathName);
 
 int killProgram = 0;
 int sockfd;
@@ -49,6 +50,7 @@ typedef struct _data{
     int socketfd;
 } data;
 
+void performHistory(int sockfd, node* head);
 node* addNode(node* head, char* name);
 node* removeNode(node* head, char* name);
 node* findNode(node* head, char* name);
@@ -180,6 +182,10 @@ void* switchCase(void* arg){
             break;
         case currentversion:
             performCurVer(arg);
+            break;
+        case history:
+            performHistory(newsockfd, ((data*) arg)->head);
+            break;
     }
     close(newsockfd);
 }
@@ -452,6 +458,35 @@ void joinAll(threadList* head){
     
 }
 
+void performHistory(int socket, node* head){
+    
+    int bytes = readSizeClient(socket);
+    char projName[bytes + 1];
+    read(socket, projName, bytes);
+    projName[bytes] = '\0';
+    
+    node* found = findNode(head, projName);
+    int check = 0;
+    if(found == NULL) {
+        printf("Could not find project with that name. Cannot find history (%s)\n", projName);
+        char* returnMsg = messageHandler("Could not find project with that name to perform History");
+        int bytecheck = write(socket, returnMsg, strlen(returnMsg));
+        free(returnMsg);
+    }else{
+        pthread_mutex_lock(&(found->mutex));
+        int projNameLen = strlen(projName);
+        char manPath[projNameLen + 12];
+        sprintf(manPath, "%s/.History", projName);
+        check = sendFile(socket, manPath);
+
+        //Since we checked that the project exists, and couldn't open .History
+        //That means we haven't created a .History. So history must be 0
+        if(check != 0) write(socket, "2:na2:0\n", 8);
+        printf("Successfully sent history to client\n"); 
+        pthread_mutex_unlock(&(found->mutex));
+    }
+}
+
 void* performCurVer(void* arg){
     //fully lock this one prob
     int socket = ((data*) arg)->socketfd;
@@ -463,7 +498,6 @@ void* performCurVer(void* arg){
     projName[bytes] = '\0';
     
     node* found = findNode(((data*) arg)->head, projName);
-    pthread_mutex_lock(&(found->mutex));
     int check = 0;
     if(found == NULL) {
         printf("Could not find project with that name. Cannot find current version (%s)\n", projName);
@@ -471,30 +505,32 @@ void* performCurVer(void* arg){
         int bytecheck = write(socket, returnMsg, strlen(returnMsg));
         free(returnMsg);
     }else{
-        
-        check = sendManifest(socket, projName);
+        pthread_mutex_lock(&(found->mutex));
+        int projNameLen = strlen(projName);
+        char manPath[projNameLen + 12];
+        sprintf(manPath, "%s/.Manifest", projName);
+        check = sendFile(socket, manPath);
         if(check == 0)printf("Successfully sent current version to client\n");
         else printf("Something went wrong with sendManifest (%d)\n", check);
+        pthread_mutex_unlock(&(found->mutex));
     }
-    pthread_mutex_unlock(&(found->mutex));
 }
 
 //Writes #:Data for manifest 
 //# is the size of the Manifest while Data is the actual content
-int sendManifest(int sockfd, char* projectName){
-    int projNameLen = strlen(projectName);
-    
-    char manPath[projNameLen + 12];
-    sprintf(manPath, "%s/.Manifest", projectName);
+int sendFile(int sockfd, char* pathName){
 
-    int manifest = open(manPath, O_RDONLY);
+    int manifest = open(pathName, O_RDONLY);
     if(manifest < 0) return 2;
     int fileSize = (int) lseek(manifest, 0, SEEK_END);
     lseek(manifest, 0, SEEK_SET);
     
-    char* fileData = (char*) malloc(sizeof(char) * (fileSize+13)); bzero(fileData, fileSize+13);
+    int pathLen = strlen(pathName);
+
+    int sendSize = pathLen + 26 + fileSize; //26 accounts for : and digits in string and \0
+    char* fileData = (char*) malloc(sizeof(char) * (sendSize)); bzero(fileData, sendSize);
     
-    sprintf(fileData, "%d:", fileSize);
+    sprintf(fileData, "%d:%s%d:", pathLen, pathName, fileSize);
 
     int status = 0, bytesRead = 0, start = strlen(fileData);
     
