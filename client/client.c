@@ -193,10 +193,10 @@ int performAdd(char** argv){
     
     int len1 = strlen(argv[2]);
     char* manPath = (char*) malloc(len1 + 11); bzero(manPath, len1+11);
-    sprintf(manPath, "%s/%s", argv[2], ".Manifest");
+    sprintf(manPath, "%s/%s ", argv[2], ".Manifest");
     int len2 = strlen(argv[3]);
 
-    int len3 = len1+4+len2;
+    int len3 = len1+5+len2;
     char* writefile = (char*) malloc(len3); 
     sprintf(writefile, "./%s/%s", argv[2], argv[3]);
 
@@ -224,7 +224,7 @@ int performAdd(char** argv){
             ptr++;
         }
         if(*ptr == '\0') break;
-        strncpy(filename, ptr, len3-1);
+        strncpy(filename, ptr, len3);
         filename[len3-1] = '\0';
         printf("%s\n", filename);
         printf("%s\n", writefile);
@@ -249,7 +249,6 @@ int performAdd(char** argv){
     //sprintf(writefile, "./%s/%s ", argv[1], argv[2]);
     writeString(manfd, "0A ");
     writeString(manfd, writefile);
-    writeString(manfd, " ");
     writeString(manfd, hashcode);
     writeString(manfd, "\n");
     free(hashcode);
@@ -264,7 +263,6 @@ int performAdd(char** argv){
 
 //if A and then going to be removed, must remove the whole line
 //check case where it has a tag
-//if it cant open does it mean it doesnt exist? maybe permissions aint right yo
 
 int performRemove(char** argv){
     DIR* d = opendir(argv[2]);
