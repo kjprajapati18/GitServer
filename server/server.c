@@ -15,15 +15,17 @@
 #include "../sharedFunctions.h"
 
 pthread_mutex_t headLock; 
-void* performCreate(void*);
+void* performCreate(int, void*);
 void* switchCase(void* arg);
 int readCommand(int socket, char** buffer);
 int createProject(int socket, char* name);
 //char* readNClient(int socket, int size);
-void* performDestroy(void*);
-void* performCurVer(void*);
+void* performDestroy(int, void*);
+void* performCurVer(int, void*);
+void performHistory(int sockfd, void*);
 
 char* messageHandler(char* msg);
+int sendFile(int sockfd, char* pathName);
 
 int killProgram = 0;
 int sockfd;
@@ -48,6 +50,7 @@ typedef struct _data{
     node* head;
     int socketfd;
 } data;
+
 
 node* addNode(node* head, char* name);
 node* removeNode(node* head, char* name);
@@ -149,6 +152,7 @@ int main(int argc, char* argv[]){
 
     //Join all the threads
     joinAll(threadHead);
+    printf("Successfully closed all sockets and threads!\n");
     //socket is already closed
     return 0;
 }
@@ -157,7 +161,6 @@ void* switchCase(void* arg){
     //RECREATE ALL PERFORM FUNCTIONS TO TAKE IN ARGS CUZ SOCKET CHANGES
     //AND WE PASS SOCKET AFTER CHECKIGN THROUGH THE SWITCH CASE
     int newsockfd = ((data*) arg)->socketfd; //PASS THIS IN
-
     int bytes;
     char cmd[3];
     bzero(cmd, 3);
@@ -172,21 +175,26 @@ void* switchCase(void* arg){
     printf("Chosen Command: %d\n", mode);
 
     switch(mode){
-        case create: performCreate(arg);
+        case create:
+            performCreate(newsockfd, arg);
             printLL(((data*)arg)->head);
             break;
-        case destroy: performDestroy(arg);
+        case destroy:
+            performDestroy(newsockfd, arg);
             printLL(((data*)arg)->head);
             break;
         case currentversion:
-            performCurVer(arg);
+            performCurVer(newsockfd, arg);
+            break;
+        case history:
+            performHistory(newsockfd, arg);
+            break;
     }
     close(newsockfd);
 }
 
-void* performDestroy(void* arg){
+void* performDestroy(int socket, void* arg){
     //fully lock this one prob
-    int socket = ((data*) arg)->socketfd;
     
     int bytes = readSizeClient(socket);
     char projName[bytes + 1];
@@ -264,9 +272,8 @@ char* messageHandler(char* msg){
 }
 
 
-void* performCreate(void* arg){
-    int socket = ((data*) arg)->socketfd;
-    printf("Succesful create message received\n");
+void* performCreate(int socket, void* arg){
+
     printf("Attempting to read project name...\n");
     char* projectName = readNClient(socket, readSizeClient(socket));
     //find node check to see if it already exists in linked list
@@ -325,7 +332,7 @@ int createProject(int socket, char* name){
         printf("Error: Could not create .Manifest file. Nothing created\n");
         return -2;
     }
-    write(manifest, "0", 1);
+    write(manifest, "0\n", 2);
     printf("Succesful server-side project creation. Notifying Client\n");
     write(socket, "succ:", 5);
     close(manifest);
@@ -452,18 +459,43 @@ void joinAll(threadList* head){
     
 }
 
-void* performCurVer(void* arg){
-    //fully lock this one prob
-    int socket = ((data*) arg)->socketfd;
-    
+void performHistory(int socket, void* arg){
+    node* head = ((data*) arg)->head;
     int bytes = readSizeClient(socket);
-    
     char projName[bytes + 1];
     read(socket, projName, bytes);
     projName[bytes] = '\0';
-    perror("here");
+    
+    node* found = findNode(head, projName);
+    int check = 0;
+    if(found == NULL) {
+        printf("Could not find project with that name. Cannot find history (%s)\n", projName);
+        char* returnMsg = messageHandler("Could not find project with that name to perform History");
+        int bytecheck = write(socket, returnMsg, strlen(returnMsg));
+        free(returnMsg);
+    }else{
+        pthread_mutex_lock(&(found->mutex));
+        int projNameLen = strlen(projName);
+        char manPath[projNameLen + 12];
+        sprintf(manPath, "%s/.History", projName);
+        check = sendFile(socket, manPath);
+
+        //Since we checked that the project exists, and couldn't open .History
+        //That means we haven't created a .History. So history must be 0
+        if(check != 0) write(socket, "2:na2:0\n", 8);
+        printf("Successfully sent history to client\n"); 
+        pthread_mutex_unlock(&(found->mutex));
+    }
+}
+
+void* performCurVer(int socket, void* arg){
+    //fully lock this one prob
+    int bytes = readSizeClient(socket);
+    char projName[bytes + 1];
+    read(socket, projName, bytes);
+    projName[bytes] = '\0';
+    
     node* found = findNode(((data*) arg)->head, projName);
-    pthread_mutex_lock(&(found->mutex));
     int check = 0;
     if(found == NULL) {
         printf("Could not find project with that name. Cannot find current version (%s)\n", projName);
@@ -471,32 +503,32 @@ void* performCurVer(void* arg){
         int bytecheck = write(socket, returnMsg, strlen(returnMsg));
         free(returnMsg);
     }else{
-        perror("Here");
-        check = sendManifest(socket, projName);
+        pthread_mutex_lock(&(found->mutex));
+        int projNameLen = strlen(projName);
+        char manPath[projNameLen + 12];
+        sprintf(manPath, "%s/.Manifest", projName);
+        check = sendFile(socket, manPath);
         if(check == 0)printf("Successfully sent current version to client\n");
         else printf("Something went wrong with sendManifest (%d)\n", check);
+        pthread_mutex_unlock(&(found->mutex));
     }
-    pthread_mutex_unlock(&(found->mutex));
 }
 
 //Writes #:Data for manifest 
 //# is the size of the Manifest while Data is the actual content
-int sendManifest(int sockfd, char* projectName){
-    int projNameLen = strlen(projectName);
-    printf("%d\n", projNameLen);
-    char manPath[projNameLen + 12];
-    sprintf(manPath, "%s/.Manifest", projectName);
+int sendFile(int sockfd, char* pathName){
 
-    printf("%s\n", manPath);
-    int manifest = open(manPath, O_RDONLY);
+    int manifest = open(pathName, O_RDONLY);
     if(manifest < 0) return 2;
     int fileSize = (int) lseek(manifest, 0, SEEK_END);
-    printf("%d\n", lseek(manifest, 0, SEEK_SET));
+    lseek(manifest, 0, SEEK_SET);
     
-    printf("%d\n", fileSize);
-    char* fileData = (char*) malloc(sizeof(char) * (fileSize+13)); bzero(fileData, fileSize+13);
+    int pathLen = strlen(pathName);
+
+    int sendSize = pathLen + 26 + fileSize; //26 accounts for : and digits in string and \0
+    char* fileData = (char*) malloc(sizeof(char) * (sendSize)); bzero(fileData, sendSize);
     
-    sprintf(fileData, "%d:", fileSize);
+    sprintf(fileData, "%d:%s%d:", pathLen, pathName, fileSize);
 
     int status = 0, bytesRead = 0, start = strlen(fileData);
     

@@ -32,7 +32,7 @@ int writeString(int fd, char* string);
 char* hash(char* path);
 
 int performCreate(int socket, char** argv);
-
+void printCurVer(char* manifest);
 //int connectToServer(char* ipAddr, int port);
 command argCheck(int argc, char* arg);
 
@@ -130,9 +130,9 @@ int main(int argc, char* argv[]){
             write(sockfd, sendFile, strlen(sendFile));
             bytes = readSizeClient(sockfd);
             char returnMsg[bytes + 1]; bzero(returnMsg, bytes+1);
-            printf("%d\n", bytes);
             read(sockfd, returnMsg, bytes);
             printf("%s\n", returnMsg);
+            //printf("%s\n", hash("hashtest.txt"));
             break;}
         case add: 
             if(argc != 4){
@@ -152,12 +152,21 @@ int main(int argc, char* argv[]){
             char sendFile[12+strlen(argv[2])];
             sprintf(sendFile, "%d:%s", strlen(argv[2]), argv[2]);
             write(sockfd, sendFile, strlen(sendFile));
+            readNClient(sockfd, readSizeClient(sockfd)); //Throw away the filePath
+            char* manifest = readNClient(sockfd, readSizeClient(sockfd));
+            printf("Success! Current Version received:\n");
+            printCurVer(manifest);
+            free(manifest);
             break;}
-        case history: 
-            read(sockfd, buffer, 32);
-            printf("%s\n", buffer);
-            printf("history\n");
-            break;
+        case history:{
+            char sendFile[12+strlen(argv[2])];
+            sprintf(sendFile, "%d:%s", strlen(argv[2]), argv[2]);
+            write(sockfd, sendFile, strlen(sendFile));
+            readNClient(sockfd, readSizeClient(sockfd)); //Throw away the filePath
+            char* history = readNClient(sockfd, readSizeClient(sockfd));
+            printf("Success! History received:\n%s", history);
+            free(history);
+            break;}
         case rollback: 
             read(sockfd, buffer, 32);
             printf("%s\n", buffer);
@@ -442,8 +451,8 @@ command argCheck(int argc, char* arg){
 
 int performCreate(int sockfd, char** argv){
     int nameSize = strlen(argv[2]);
-    char sendFile[11+nameSize];
-    sprintf(sendFile, "%d:%s:", nameSize+1, argv[2]);
+    char sendFile[12+nameSize];
+    sprintf(sendFile, "%d:%s", nameSize, argv[2]);
     write(sockfd, sendFile, strlen(sendFile)); 
     read(sockfd, sendFile, 5); //Waiting for either fail: or succ:
     sendFile[5] = '\0';       //Make it a string
@@ -458,7 +467,7 @@ int performCreate(int sockfd, char** argv){
         if(output < 0){
             printf("Fatal Error: Cannot create local .Manifest file. Server still retains copy\n");
         }else{
-            write(output, "0", 1);
+            write(output, "0\n", 2);
             printf("Project successfully created locally!\n");
         }
     } else {
@@ -493,4 +502,27 @@ char* hash(char* path){
     }
     return hash;
 
+}
+
+void printCurVer(char* manifest){
+    int skip = 1;
+    char *ptr = manifest, *startWord = manifest;
+    while(*ptr != '\n') ptr++;
+    //ptr is now either at \n. Which is the end of manifest version
+    ptr++;
+    //We are at the spot after the newline
+    while(*ptr != '\0'){
+        while(*ptr != ' ' && *ptr != '\0') ptr++;
+        if(skip){
+            skip = 0;
+            ptr++;
+            continue;
+        }
+        skip = 1;
+        *ptr = '\0';
+        printf("%s", startWord);
+        ptr += 34; //skip over the hash code(32). Go PAST the newline (either # or \0)
+        startWord = ptr-1; //start of word is AT the newline;
+    }
+    printf("%s", startWord);
 }

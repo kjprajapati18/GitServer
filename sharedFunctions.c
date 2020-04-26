@@ -26,10 +26,10 @@ int readSizeClient(int socket){
 }
 
 char* readNClient(int socket, int size){
-    char* buffer = malloc(sizeof(char) * (size));
+    char* buffer = malloc(sizeof(char) * (size+1));
     printf("\tAttempting to read %d bytes...\n", size);
     read(socket, buffer, size);
-    buffer[size-1] = '\0';
+    buffer[size] = '\0';
     return buffer;
 }
 
