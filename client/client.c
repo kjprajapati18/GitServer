@@ -141,7 +141,7 @@ int main(int argc, char* argv[]){
             printf("update\n");
             performUpdate(sockfd, argv);
             break; 
-        case upgrade: 
+        case upgrade:{ 
             int len = strlen(argv[1]);
             char dotfilepath[len + 11]; dotfilepath[0] = '\0';
             sprintf(dotfilepath, "%s/.Update", argv[1]);
@@ -156,7 +156,7 @@ int main(int argc, char* argv[]){
                 return -1;
             }
             performUpgrade(sockfd, argv);
-            break;
+            break;}
         case commit: 
             printf("commit\n");
             break;
