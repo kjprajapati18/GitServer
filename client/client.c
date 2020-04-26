@@ -641,7 +641,7 @@ int performUpdate(int sockfd, char** argv){
         advanceToken(&serverPtr, '\n');
         advanceToken(&clientPtr, '\n');
 
-        while(strcmp(serverFilePath, clientFilePath)){
+        /*while(strcmp(serverFilePath, clientFilePath)){
             //Files do not match, which means that the file on client was deleted on server
 
         }
