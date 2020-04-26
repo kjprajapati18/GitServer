@@ -366,7 +366,7 @@ int performCreate(int sockfd, char** argv){
         if(output < 0){
             printf("Fatal Error: Cannot create local .Manifest file. Server still retains copy\n");
         }else{
-            write(output, "0", 1);
+            write(output, "0\n", 2);
             printf("Project successfully created locally!\n");
         }
     } else {
@@ -406,8 +406,10 @@ char* hash(char* path){
 void printCurVer(char* manifest){
     int skip = 1;
     char *ptr = manifest, *startWord = manifest;
-    while(*ptr != '\n' && *ptr == '\0') ptr++;
-    //ptr is now either at \n or \0. \n means there's more stuff
+    while(*ptr != '\n') ptr++;
+    //ptr is now either at \n. Which is the end of manifest version
+    ptr++;
+    //We are at the spot after the newline
     while(*ptr != '\0'){
         while(*ptr != ' ' && *ptr != '\0') ptr++;
         if(skip){
@@ -418,7 +420,7 @@ void printCurVer(char* manifest){
         skip = 1;
         *ptr = '\0';
         printf("%s", startWord);
-        ptr += 18; //skip over the hash code. Go PAST the newline (either # or \0)
+        ptr += 34; //skip over the hash code(32). Go PAST the newline (either # or \0)
         startWord = ptr-1; //start of word is AT the newline;
     }
     printf("%s", startWord);

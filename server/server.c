@@ -332,7 +332,7 @@ int createProject(int socket, char* name){
         printf("Error: Could not create .Manifest file. Nothing created\n");
         return -2;
     }
-    write(manifest, "0", 1);
+    write(manifest, "0\n", 2);
     printf("Succesful server-side project creation. Notifying Client\n");
     write(socket, "succ:", 5);
     close(manifest);
