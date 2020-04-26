@@ -537,7 +537,8 @@ int performCreate(int sockfd, char** argv){
     return 0;
 }
 
-//What do when you add file locally, but someone else pushes that same filename???
+//What do when you add file locally, but someone else pushes that same filename??? Same hash?
+//For now, its just gonna be a .Conflict
 int performUpdate(int sockfd, char** argv){
     //Send project name to the server (TURN TO ONE FUNCTION)
     int nameSize = strlen(argv[2]);
@@ -573,6 +574,7 @@ int performUpdate(int sockfd, char** argv){
         return 2;
     }
     clientMan[bytesRead] = '\0';
+    close(clientManfd);                 //We're done with the manifest files.
 
     //Get the manifest version numbers of each
     char *serverPtr = serverMan, *clientPtr = clientMan;
@@ -584,14 +586,25 @@ int performUpdate(int sockfd, char** argv){
 
     int serverManVerNum = atoi(serverMan), clientManVerNum = atoi(clientMan);
     
+    char updatePath[nameSize+10];
+    sprintf(updatePath, "%s/.Update", argv[2]);
+    remove(updatePath);
+    int updatefd = open(updatePath, O_WRONLY);
+
     if(serverManVerNum == clientManVerNum){
-        printf("Already Up-to-Date!\n");
+        printf("Up To Date\n");
         free(serverMan);
         free(clientMan);
+        close(updatefd);
         return 0;
     }
 
     //We need to make an update since manifest versions mismatch
+    char conflictPath[nameSize+12];
+    sprintf(conflictPath, "%s/.Conflict", argv[2]);
+    remove(conflictPath);
+    int conflictfd = open(conflictPath, O_WRONLY);
+
     int serverFileVerNum = 0, clientFileVerNum=0;
     char *serverFileVer,*clientFileVer;  //Store the start of each line 
     char *serverFilePath, *clientFilePath;
@@ -618,17 +631,25 @@ int performUpdate(int sockfd, char** argv){
         advanceToken(&serverPtr, '\n');
         advanceToken(&clientPtr, '\n');
 
+        while(strcmp(serverFilePath, clientFilePath)){
+            //Files do not match, which means that the file on client was deleted on server
+
+        }
         //After all of that, we have finally tokenized 1 line of each Manifest.
-        printf("Server File Ver: %s/%d\n", serverFileVer, serverFileVerNum);
+        /*printf("Server File Ver: %s/%d\n", serverFileVer, serverFileVerNum);
         printf("Server File Path: %s\n", serverFilePath);
         printf("Server File Hash: %s\n", serverFileHash);
         printf("Client File Ver: %s/%d\n", clientFileVer, clientFileVerNum);
         printf("Client File Path: %s\n", clientFilePath);
-        printf("Client File Hash: %s\n\n", clientFileHash);
+        printf("Client File Hash: %s\n\n", clientFileHash);*/
+
     }
 
     free(serverMan);
     free(clientMan);
+    close(updatefd);
+    close(conflictfd);
+    //Add checkfor conflict being empty and remove if it is
     return 0;
 }
 
