@@ -40,6 +40,7 @@ void printCurVer(char* manifest);
 int performUpdate(int sockfd, char** argv);
 //int connectToServer(char* ipAddr, int port);
 command argCheck(int argc, char* arg);
+void advanceToken(char** ptr, char delimiter);
 
 int main(int argc, char* argv[]){
     //int sockfd;
@@ -546,6 +547,7 @@ int performCreate(int sockfd, char** argv){
     return 0;
 }
 
+//What do when you add file locally, but someone else pushes that same filename???
 int performUpdate(int sockfd, char** argv){
     //Send project name to the server (TURN TO ONE FUNCTION)
     int nameSize = strlen(argv[2]);
@@ -583,13 +585,56 @@ int performUpdate(int sockfd, char** argv){
     clientMan[bytesRead] = '\0';
 
     //Get the manifest version numbers of each
-    int serverManVerNum;
-    if(!strcmp(serverMan, clientMan)){
-        printf("Server and Client Manifests are the same!\n");
-    } else {
-        printf("There are differences between manifests\n");
-        printf("Client:\n%s", clientMan);
-        printf("Server:\n%s", serverMan);
+    char *serverPtr = serverMan, *clientPtr = clientMan;
+    
+    while(*serverPtr != '\n') serverPtr++;
+    *serverPtr = '\0'; serverPtr++;
+    while(*clientPtr != '\n') clientPtr++;
+    *clientPtr = '\0'; clientPtr++;
+
+    int serverManVerNum = atoi(serverMan), clientManVerNum = atoi(clientMan);
+    
+    if(serverManVerNum == clientManVerNum){
+        printf("Already Up-to-Date!\n");
+        free(serverMan);
+        free(clientMan);
+        return 0;
+    }
+
+    //We need to make an update since manifest versions mismatch
+    int serverFileVerNum = 0, clientFileVerNum=0;
+    char *serverFileVer,*clientFileVer;  //Store the start of each line 
+    char *serverFilePath, *clientFilePath;
+    char *serverFileHash, *clientFileHash, *liveHash;
+    while(*serverPtr != '\0' && *clientPtr != '\0'){
+        //Extract the version #, filepath, and hash code from this line of the manifests
+
+        //Points to beginning of File version (so we are not duplicating any data)
+        serverFileVer = serverPtr; clientFileVer= clientPtr;
+        //finds the next space, since that is the end of the file version.
+        //Sets that space to be \0 so that file version string can be accessed by FileVer pointers;
+        //Advance the ptr 1 extra time to get to the start of the next token
+        //Convert file version to int
+        advanceToken(&serverPtr, ' ');
+        advanceToken(&clientPtr, ' ');
+        serverFileVerNum = atoi(serverFileVer); clientFileVerNum = atoi(clientFileVer);
+
+        //Perform a similar logic to extract path and Hash
+        serverFilePath = serverPtr; clientFilePath = clientPtr;
+        advanceToken(&serverPtr, ' ');      
+        advanceToken(&clientPtr, ' ');
+
+        serverFileHash = serverPtr; clientFileHash = clientPtr;
+        advanceToken(&serverPtr, '\n');
+        advanceToken(&clientPtr, '\n');
+
+        //After all of that, we have finally tokenized 1 line of each Manifest.
+        printf("Server File Ver: %s/%d\n", serverFileVer, serverFileVerNum);
+        printf("Server File Path: %s\n", serverFilePath);
+        printf("Server File Hash: %s\n", serverFileHash);
+        printf("Client File Ver: %s/%d\n", clientFileVer, clientFileVerNum);
+        printf("Client File Path: %s\n", clientFilePath);
+        printf("Client File Hash: %s\n\n", clientFileHash);
     }
 
     free(serverMan);
@@ -647,4 +692,9 @@ void printCurVer(char* manifest){
         startWord = ptr-1; //start of word is AT the newline;
     }
     printf("%s", startWord);
+}
+void advanceToken(char** ptr, char delimiter){
+    while(*(*ptr) != delimiter) (*ptr)++;
+    *(*ptr) = '\0';
+    (*ptr)++;
 }
