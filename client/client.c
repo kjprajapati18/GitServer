@@ -730,6 +730,7 @@ int performUpdate(int sockfd, char** argv){
     return 0;
 }
 
+//needs to download server manifest as new manifest.
 int performUpgrade(int sockfd, char** argv, char* updatePath){
     char* projName = messageHandler(argv[1]);
     write(sockfd, projName, strlen(projName)+1);
