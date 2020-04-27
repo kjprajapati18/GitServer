@@ -46,7 +46,8 @@ void printCurVer(char* manifest);
 int performUpdate(int sockfd, char** argv);
 command argCheck(int argc, char* arg);
 void advanceToken(char** ptr, char delimiter);
-int manDifferences(int updatefd, int conflictfd, avlNode* clientHead, avlNode* serverHead);
+int manDifferencesCDM(int, int, avlNode*, avlNode*);
+int manDifferencesA(int, int, avlNode*, avlNode*);
 
 int main(int argc, char* argv[]){
     //int sockfd;
@@ -141,6 +142,7 @@ int main(int argc, char* argv[]){
         case update:          
             printf("update\n");
             performUpdate(sockfd, argv);
+            write(sockfd, "4:Done", 6);
             break; 
         case upgrade:{ 
             int len = strlen(argv[1]);
@@ -181,9 +183,15 @@ int main(int argc, char* argv[]){
             char sendFile[12+strlen(argv[2])];
             sprintf(sendFile, "%d:%s", strlen(argv[2]), argv[2]);
             write(sockfd, sendFile, strlen(sendFile));
-            readNClient(sockfd, readSizeClient(sockfd)); //Throw away the filePath
+            char* test = readNClient(sockfd, readSizeClient(sockfd)); //Throw away the filePath but make sure its not an error message
+            if(!strncmp(test, "Could", 5)){
+                printf("%s\n", test);
+                free(test);
+                break;
+            }
             char* manifest = readNClient(sockfd, readSizeClient(sockfd));
             printf("Success! Current Version received:\n");
+            write(sockfd, "4:Done", 6);
             printCurVer(manifest);
             free(manifest);
             break;}
@@ -621,6 +629,7 @@ int performUpdate(int sockfd, char** argv){
 
     char updateVersion[12];
     sprintf(updateVersion, "%s\n", serverMan);
+    writeString(updatefd, updateVersion);
 
     if(serverManVerNum == clientManVerNum){
         printf("Up To Date\n");
@@ -650,7 +659,12 @@ int performUpdate(int sockfd, char** argv){
 
     // printAVLList(serverHead);
     // printAVLList(clientHead);
-    manDifferences(updatefd, conflictfd, clientHead, serverHead);
+    //Will compare the 2 files and write to the proper string to stdout and the proper files
+    printf("Pog1\n");
+    manDifferencesCDM(updatefd, conflictfd, clientHead, serverHead);
+    printf("Pog2\n");
+    manDifferencesA(updatefd, conflictfd, clientHead, serverHead);
+    
     //Check every entry in client Manifest to server manifest
     
 
@@ -691,13 +705,23 @@ int performUpdate(int sockfd, char** argv){
         //Check for 
 
     //}
-    freeAvl(serverHead);
-    freeAvl(clientHead);
+    if(serverHead != NULL)freeAvl(serverHead);
+    if(clientHead != NULL)freeAvl(clientHead);
     free(serverMan);
     free(clientMan);
     close(updatefd);
     close(conflictfd);
-    //Add checkfor conflict being empty and remove if it is
+
+    //Check if anything was written to the conflict file. Delete .Update and print to let user know
+    conflictfd = open(conflictPath, O_RDONLY);
+    int conflictSize = lseek(conflictfd, 0, SEEK_END);
+    close(conflictfd);
+    if(conflictSize == 0){
+        remove(conflictPath);
+    } else {
+        remove(updatePath);
+        printf("Conflicts were found and must be resolved before the project can be updated\n");
+    }
     return 0;
 }
 
@@ -757,25 +781,28 @@ void printCurVer(char* manifest){
     printf("%s", startWord);
 }
 
-int manDifferences(int hostupdate, int hostconflict, avlNode* hostHeadO, avlNode* senderHeadO){
+int manDifferencesCDM(int hostupdate, int hostconflict, avlNode* hostHead, avlNode* senderHead){
     
-    
-    
-    /*
-    avlNode* ptr = NULL, *hostHead = hostHeadO, *senderHead = senderHeadO;
-    while(){
+    if(hostHead == NULL) return 0;
+    printf("File: %s\n", hostHead->path);
+    avlNode* ptr = NULL;
     int nullCheck = findAVLNode(&ptr, senderHead, hostHead->path);
-    int change = 0;
     char insert = '\0';
-
-    if(nullCheck == -1){
+    char* liveHash = hash(hostHead->path);
+    if(liveHash == NULL) printf("NULL HASH  ");
+    printf("%d\n", nullCheck);
+    if(liveHash == NULL || strcmp(liveHash, hostHead->code)){
+        insert = 'C';
+    }else if(nullCheck == -1){
         //Did not find host's entry in the server. Check to see if it's a local add/remove
         char lastVerChar = (hostHead->ver)[strlen(hostHead->ver)-1];
         if(lastVerChar != 'A' && lastVerChar != 'R'){
             //There was no local edit. Therefore this file was deleted on the server
-            change = 1;
             insert = 'D';
-        } 
+        } else {
+            //There was a local add/remove, which is a local change. Therefore conflict
+            insert = 'C';
+        }
     } else if (nullCheck == -2){
         printf("A null terminator was somehow passed in\n");
     } else {
@@ -783,20 +810,57 @@ int manDifferences(int hostupdate, int hostconflict, avlNode* hostHeadO, avlNode
         if(strcmp(hostHead->ver, ptr->ver) || strcmp(hostHead->code, ptr->code)){
             //Files do not match because either the version or hash are different.
             //Therefore, it was modified on servers.
-            change = 2;
             insert = 'M';
         }
     }
-
-    if(change){
-        char* liveHash = hash(hostHead->path);
-        if(liveHash == NULL || strcmp(liveHash, hostHead->code)){
-            //Hash codes are different. Conflict found
-            insert = 'C';
-        }
-
-        free(liveHash);
+    
+    char write[strlen(hostHead->path) + 37]; //The pathname plus hash plus "(char)(spacex2)\0\n"
+    printf("Here\n");
+    switch(insert){
+        case 'D':
+        case 'M': 
+            if(ptr != NULL)sprintf(write, "%c %s %s\n", insert, hostHead->path, ptr->code);
+            else sprintf(write, "%c %s %s\n", insert, hostHead->path, liveHash);
+            printf("OtherHere\n");
+            writeString(hostupdate, write);
+            printf("%c%s\n", insert, hostHead->path);
+            break;
+        case 'C':
+            if(liveHash != NULL) sprintf(write, "C %s %s\n", hostHead->path, liveHash);
+            else sprintf(write, "C %s 00000000000000000000000000000000\n", hostHead->path);
+            writeString(hostconflict, write);
+            printf("C%s\n", hostHead->path);
+            break;
+        default:
+            break;
     }
-    }*/
-    return 0;
+    
+    if(liveHash != NULL) free(liveHash);
+    int left = manDifferencesCDM(hostupdate, hostconflict, hostHead->left, senderHead);
+    int right = manDifferencesCDM(hostupdate, hostconflict, hostHead->right, senderHead);
+    return left + right;
+}
+
+int manDifferencesA(int hostupdate, int hostconflict, avlNode* hostHead, avlNode* senderHead){
+
+    if(senderHead == NULL) return 0;
+
+    printf("File: %s\n", senderHead->path);
+    avlNode* ptr = NULL;
+    int nullCheck = findAVLNode(&ptr, hostHead, senderHead->path);
+    printf("Pog\n");
+    if(nullCheck == -1){
+        //Did not find server's entry in the host. They need to add this file
+        //Cannot be a conflict since that is taken care of in manDifferencesCDM
+        char write[strlen(senderHead->path) + 37]; //The pathname + hash + "A(2spaces)\0\n"
+        sprintf(write, "A %s %s\n", senderHead->path, senderHead->code);
+        writeString(hostupdate, write);
+        printf("A%s\n", senderHead->path);
+    } else if (nullCheck == -2){
+        printf("A null terminator was somehow passed in\n");
+    }
+
+    int left = manDifferencesA(hostupdate, hostconflict, hostHead, senderHead->left);
+    int right = manDifferencesA(hostupdate, hostconflict, hostHead, senderHead->right);
+    return left + right;
 }
