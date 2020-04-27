@@ -862,24 +862,19 @@ int manDifferencesCDM(int hostupdate, int hostconflict, avlNode* hostHead, avlNo
     int nullCheck = findAVLNode(&ptr, senderHead, hostHead->path);
     char insert = '\0';
     char* liveHash = hash(hostHead->path);
+    char lastVerChar = (hostHead->ver)[strlen(hostHead->ver)-1];
     if(liveHash == NULL) printf("NULL HASH  ");
     printf("%d\n", nullCheck);
-    if(liveHash == NULL || strcmp(liveHash, hostHead->code)){
+    if(liveHash == NULL || strcmp(liveHash, hostHead->code) || lastVerChar == 'A' || lastVerChar == 'R'){
+        //The file was locally modified iff any of these conditions are true. This is a conflict.
         insert = 'C';
     }else if(nullCheck == -1){
-        //Did not find host's entry in the server. Check to see if it's a local add/remove
-        char lastVerChar = (hostHead->ver)[strlen(hostHead->ver)-1];
-        if(lastVerChar != 'A' && lastVerChar != 'R'){
-            //There was no local edit. Therefore this file was deleted on the server
-            insert = 'D';
-        } else {
-            //There was a local add/remove, which is a local change. Therefore conflict
-            insert = 'C';
-        }
+        //Did not find host's entry in the server. Since its not a conflict, it was deleted on server
+        insert = 'D';
     } else if (nullCheck == -2){
         printf("A null terminator was somehow passed in\n");
     } else {
-        //We found the entry in both manifests
+        //We found the entry in both manifests. Ignore if they are the same entry
         if(strcmp(hostHead->ver, ptr->ver) || strcmp(hostHead->code, ptr->code)){
             //Files do not match because either the version or hash are different.
             //Therefore, it was modified on servers.
