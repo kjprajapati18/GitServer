@@ -8,6 +8,6 @@ typedef enum command{
 void error(char*);
 char* readNClient(int socket, int size);
 int readSizeClient(int socket);
-
+char* messageHandler(char* msg);
 
 #endif

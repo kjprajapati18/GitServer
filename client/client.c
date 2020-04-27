@@ -144,9 +144,9 @@ int main(int argc, char* argv[]){
         case upgrade:{ 
             int len = strlen(argv[1]);
             char dotfilepath[len + 11]; dotfilepath[0] = '\0';
-            sprintf(dotfilepath, "%s/.Update", argv[1]);
-            if(open(dotfilepath, O_RDONLY)< 0) {
-                printf("No openable update file available. First run an update before upgrading\n");
+            sprintf(dotfilepath, "%s/.Conflict", argv[1]);
+            if(open(dotfilepath, O_RDONLY) > 0){
+                printf("Conflicts exist. Please resolve all conflicts and update");
                 return -1;
             }
             bzero(dotfilepath, len+9);
@@ -155,7 +155,12 @@ int main(int argc, char* argv[]){
                 printf("Conflicts exist. Please resolve all conflicts and update");
                 return -1;
             }
-            performUpgrade(sockfd, argv);
+            sprintf(dotfilepath, "%s/.Update", argv[1]);
+            if(open(dotfilepath, O_RDONLY)< 0) {
+                printf("No openable update file available. First run an update before upgrading\n");
+                return -1;
+            }
+            performUpgrade(sockfd, argv, dotfilepath);
             break;}
         case commit: 
             printf("commit\n");
@@ -683,8 +688,75 @@ int performUpdate(int sockfd, char** argv){
     return 0;
 }
 
-int performUpgrade(int sockfd, char** argv){
-    
+int performUpgrade(int sockfd, char** argv, char* updatePath){
+    char* projName = messageHandler(argv[1]);
+    write(sockfd, projName, strlen(projName)+1);
+    int updatefd = open(updatePath, O_RDONLY);
+    int size = lseek(updatefd, 0, SEEK_END);
+    if(size==0){
+        printf("Project is up to date");
+        close(updatefd);
+        remove(updatePath);
+        return 1;
+    }
+    lseek(updatefd, 0, SEEK_SET);
+    char update[size+1];
+    int bytesRead=0, status=0;
+    do{
+        status = read(updatefd, update + bytesRead, size-bytesRead);
+        if(status < 0){
+            close(updatefd);
+            error("Fatal Error: Unable to read .Update file\n");
+        }
+        bytesRead += status;
+    }while(status != 0);
+    update[size] = '\0';
+    close(updatefd);
+    //this is necessary
+    int i =0, j = 0;
+    int numFiles = 0;
+    char* addFile = (char*) malloc(1); addFile[0] = '\0';
+    int track = 0;
+    for(i = 0; i < size +1; i++){
+        switch(update[i]){
+            case 'A':
+            case 'M':{
+                int end = i +2;
+                while(update[end] != ' ') end++;
+                char filename[end-i+1]; bzero(filename, end-i+1);
+                strncpy(filename, &update[i], end-i);
+                filename[end-i] = '\0';
+                remove(filename);
+                numFiles++; 
+                char* fileAndSize = messageHandler(filename);
+                track+= strlen(fileAndSize);
+                char* temp = (char*) malloc(track + 2);
+                sprintf(temp, "%s:%s", addFile, fileAndSize);
+                free(addFile);
+                free(fileAndSize);
+                addFile = temp;
+                break;}
+            default: break;
+        }
+        while(update[i] != '\n') i++;
+    }
+    //shuld have a string of all files to download and replace on client side separated by colons here. 
+    char* temp = malloc(track+2+11);
+    sprintf(temp, "%d%s", numFiles, addFile);
+    free(addFile);
+    addFile = temp;
+    write(sockfd, addFile, track+2+11);
+    i = 0;
+    for(i = 0; i< numFiles; i++){
+        char* filePath = readNClient(sockfd, readSizeClient(sockfd));
+        int fd = open(filePath, O_CREAT | O_WRONLY, 00600);
+        char* fileCont = readNClient(sockfd, readSizeClient(sockfd));
+        writeString(fd, fileCont);
+        close(fd);
+        free(filePath);
+        free(fileCont);
+    }
+    free(addFile);
 }
 
 char* hash(char* path){

@@ -37,3 +37,10 @@ void error(char* msg){
     perror(msg);
     exit(1);
 }
+
+char* messageHandler(char* msg){
+    int size = strlen(msg);
+    char* returnMsg = (char*) malloc(12+size); bzero(returnMsg, 12+size);
+    sprintf(returnMsg, "%d:%s", size, msg);
+    return returnMsg;
+}

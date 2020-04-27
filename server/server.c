@@ -30,8 +30,8 @@ void* performDestroy(int, void*);
 void* performCurVer(int, void*);
 void performHistory(int, void*);
 void performUpdate(int, void*);
-
-char* messageHandler(char* msg);
+void* performUpgradeServer(int, void*);
+//char* messageHandler(char* msg);
 int sendFile(int sockfd, char* pathName);
 
 int killProgram = 0;
@@ -194,11 +194,52 @@ void* switchCase(void* arg){
         case update:
             performCurVer(newsockfd, arg);
             break;
+        case upgrade:
+            performUpgradeServer(newsockfd, arg);
+            break;
         case history:
             performHistory(newsockfd, arg);
             break;
     }
     close(newsockfd);
+}
+
+void* performUpgradeServer(int socket, void* arg){
+    pthread_mutex_lock(&headLock);
+    int bytes = readSizeClient(socket);
+    char projName[bytes +1];
+    read(socket, projName, bytes);
+    node* found = findNode(((data*) arg)->head, projName);
+    //check if found is null i dont do it but we should
+    pthread_mutex_lock(&(found->mutex));
+    int numFiles = readSizeClient(socket);
+    int i;
+    for(i = 0; i < numFiles; i++){
+        char* filepath = readNClient(socket, readSizeClient(socket));
+        int fd = open(filepath, O_RDONLY);
+        int fileSize = (int) lseek(fd, 0, SEEK_END);
+        char file[fileSize];
+        lseek(fd, 0, SEEK_SET);
+        int bytesRead = 0, status =0;
+        do{
+            status = read(fd, file + bytesRead, fileSize-bytesRead);
+            if(status < 0){
+                close(fd);
+                error("Fatal Error: Unable to read file\n");
+            }
+            bytesRead+= status;
+        }while(status!=0);
+        close(fd);
+        char* fileToSend = messageHandler(file);
+        char* fileNameToSend = messageHandler(filepath);
+        write(socket, fileNameToSend, strlen(fileNameToSend));
+        write(socket, fileToSend, strlen(fileToSend));
+        free(fileToSend);
+        free(filepath);
+    }
+    pthread_mutex_unlock(&(found->mutex));
+    pthread_mutex_unlock(&headLock);
+
 }
 
 void* performDestroy(int socket, void* arg){
@@ -272,12 +313,12 @@ int recDest(char* path){
     return 0;
 }
 
-char* messageHandler(char* msg){
+/*char* messageHandler(char* msg){
     int size = strlen(msg);
     char* returnMsg = (char*) malloc(12+size); bzero(returnMsg, 12+size);
     sprintf(returnMsg, "%d:%s", size, msg);
     return returnMsg;
-}
+}*/
 
 
 void* performCreate(int socket, void* arg){
