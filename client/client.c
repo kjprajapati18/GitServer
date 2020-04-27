@@ -46,6 +46,7 @@ void printCurVer(char* manifest);
 int performUpdate(int sockfd, char** argv);
 command argCheck(int argc, char* arg);
 void advanceToken(char** ptr, char delimiter);
+int manDifferences(int updatefd, int conflictfd, avlNode* clientHead, avlNode* serverHead);
 
 int main(int argc, char* argv[]){
     //int sockfd;
@@ -576,7 +577,7 @@ int performUpdate(int sockfd, char** argv){
     }
 
     //Read Manifest from the server (TURN THIS AND NEXT INTO 1 FUNCTION);
-    readNClient(sockfd, readSizeClient(sockfd)); //Throw away the file path
+    free(readNClient(sockfd, readSizeClient(sockfd))); //Throw away the file path
     int serverManSize = readSizeClient(sockfd);
     char* serverMan = readNClient(sockfd, serverManSize);
     
@@ -609,12 +610,26 @@ int performUpdate(int sockfd, char** argv){
     char updatePath[nameSize+10];
     sprintf(updatePath, "%s/.Update", argv[2]);
     remove(updatePath);
-    int updatefd = open(updatePath, O_WRONLY);
+    int updatefd = open(updatePath, O_WRONLY | O_CREAT, 00600);
+    if(updatefd < 0){
+        free(serverMan);
+        free(clientMan);
+        close(updatefd);
+        printf("Error: Could not create a .Update file\n");
+        return -1;
+    }
+
+    char updateVersion[12];
+    sprintf(updateVersion, "%s\n", serverMan);
 
     if(serverManVerNum == clientManVerNum){
         printf("Up To Date\n");
         free(serverMan);
         free(clientMan);
+        close(updatefd);
+        //Now make the .Update file blank
+        remove(updatePath);
+        updatefd = open(updatePath, O_WRONLY | O_CREAT, 00600);
         close(updatefd);
         return 0;
     }
@@ -623,7 +638,7 @@ int performUpdate(int sockfd, char** argv){
     char conflictPath[nameSize+12];
     sprintf(conflictPath, "%s/.Conflict", argv[2]);
     remove(conflictPath);
-    int conflictfd = open(conflictPath, O_WRONLY);
+    int conflictfd = open(conflictPath, O_WRONLY|O_CREAT, 00600);
 
     //int serverFileVerNum = 0, clientFileVerNum=0;
     avlNode *serverHead = NULL, *clientHead = NULL;
@@ -633,8 +648,11 @@ int performUpdate(int sockfd, char** argv){
     serverHead = fillAvl(&serverPtr);
     clientHead = fillAvl(&clientPtr);
 
-    printAVLList(serverHead);
-    printAVLList(clientHead);
+    // printAVLList(serverHead);
+    // printAVLList(clientHead);
+    manDifferences(updatefd, conflictfd, clientHead, serverHead);
+    //Check every entry in client Manifest to server manifest
+    
 
     /*while(*serverPtr != '\0' && *clientPtr != '\0'){
         //Extract the version #, filepath, and hash code from this line of the manifests
@@ -737,4 +755,48 @@ void printCurVer(char* manifest){
         startWord = ptr-1; //start of word is AT the newline;
     }
     printf("%s", startWord);
+}
+
+int manDifferences(int hostupdate, int hostconflict, avlNode* hostHeadO, avlNode* senderHeadO){
+    
+    
+    
+    /*
+    avlNode* ptr = NULL, *hostHead = hostHeadO, *senderHead = senderHeadO;
+    while(){
+    int nullCheck = findAVLNode(&ptr, senderHead, hostHead->path);
+    int change = 0;
+    char insert = '\0';
+
+    if(nullCheck == -1){
+        //Did not find host's entry in the server. Check to see if it's a local add/remove
+        char lastVerChar = (hostHead->ver)[strlen(hostHead->ver)-1];
+        if(lastVerChar != 'A' && lastVerChar != 'R'){
+            //There was no local edit. Therefore this file was deleted on the server
+            change = 1;
+            insert = 'D';
+        } 
+    } else if (nullCheck == -2){
+        printf("A null terminator was somehow passed in\n");
+    } else {
+        //We found the entry in both manifests
+        if(strcmp(hostHead->ver, ptr->ver) || strcmp(hostHead->code, ptr->code)){
+            //Files do not match because either the version or hash are different.
+            //Therefore, it was modified on servers.
+            change = 2;
+            insert = 'M';
+        }
+    }
+
+    if(change){
+        char* liveHash = hash(hostHead->path);
+        if(liveHash == NULL || strcmp(liveHash, hostHead->code)){
+            //Hash codes are different. Conflict found
+            insert = 'C';
+        }
+
+        free(liveHash);
+    }
+    }*/
+    return 0;
 }
