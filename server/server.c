@@ -15,6 +15,7 @@
 #include "../sharedFunctions.h"
 
 /*  
+    --SINCE WE CLOSE THE socket on SIGINT, I think that the clients won't be able to write back to server
     --MOVE SENDFILE to shared functiosns
     --We can make a readFindProject function since it is basically the same for all performs
     --performCurVer && performUpdate are exact same code since all the server needs to do is send the Manifest
@@ -559,6 +560,8 @@ void* performCurVer(int socket, void* arg){
         check = sendFile(socket, manPath);
         if(check == 0)printf("Successfully sent current version to client\n");
         else printf("Something went wrong with sendManifest (%d)\n", check);
+        char* confirm = readNClient(socket, readSizeClient(socket));
+        free(confirm);
         pthread_mutex_unlock(&(found->mutex));
     }
 }
