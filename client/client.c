@@ -730,7 +730,6 @@ int performUpdate(int sockfd, char** argv){
     return 0;
 }
 
-//needs to download server manifest as new manifest.
 int performUpgrade(int sockfd, char** argv, char* updatePath){
     char* projName = messageHandler(argv[1]);
     write(sockfd, projName, strlen(projName)+1);
@@ -742,6 +741,14 @@ int performUpgrade(int sockfd, char** argv, char* updatePath){
         remove(updatePath);
         return 1;
     }
+    char manifestFile[(strlen(argv[1]) + 11)];
+    sprintf(manifestFile, "%s/.Manifest", argv[1]);
+    remove(manifestFile);
+    char* manifest = readNClient(sockfd, readSizeClient(sockfd));
+    int manfd = open(manifestFile, O_WRONLY, 00600);
+    writeString(manfd, manifest);
+    close(manfd);
+    free(manifest);
     lseek(updatefd, 0, SEEK_SET);
     char update[size+1];
     int bytesRead=0, status=0;
@@ -755,7 +762,6 @@ int performUpgrade(int sockfd, char** argv, char* updatePath){
     }while(status != 0);
     update[size] = '\0';
     close(updatefd);
-    //this is necessary
     int i =0, j = 0;
     int numFiles = 0;
     char* addFile = (char*) malloc(1); addFile[0] = '\0';
