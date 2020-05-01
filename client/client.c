@@ -731,7 +731,7 @@ int performUpdate(int sockfd, char** argv){
 
 int performUpgrade(int sockfd, char** argv, char* updatePath){
     char* projName = messageHandler(argv[2]);
-    write(sockfd, projName, strlen(projName)+1);
+    write(sockfd, projName, strlen(projName));
     int updatefd = open(updatePath, O_RDONLY);
     int size = lseek(updatefd, 0, SEEK_END);
     if(size==0){
@@ -744,7 +744,7 @@ int performUpgrade(int sockfd, char** argv, char* updatePath){
     sprintf(manifestFile, "%s/.Manifest", argv[1]);
     remove(manifestFile);
     char* manifest = readNClient(sockfd, readSizeClient(sockfd));
-    int manfd = open(manifestFile, O_WRONLY, 00600);
+    int manfd = open(manifestFile, O_WRONLY | O_CREAT, 00600);
     writeString(manfd, manifest);
     close(manfd);
     free(manifest);
