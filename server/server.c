@@ -222,6 +222,7 @@ void* performUpgradeServer(int socket, void* arg){
         return;
     }
     char *projName = readNClient(socket, readSizeClient(socket));
+    printf("%s\n", projName);
     pthread_mutex_lock(&headLock);
     node* found = findNode(((data*) arg)->head, projName);
     if(found == NULL){
@@ -234,8 +235,11 @@ void* performUpgradeServer(int socket, void* arg){
     pthread_mutex_lock(&(found->mutex));
     char manifestFile[strlen(projName) + 11];
     sprintf(manifestFile, "%s/.Manifest", projName);
+    printf("%s\n", manifestFile);
     int manfd = open(manifestFile, O_RDONLY);
+    if(manfd < 0) printf("dumbbutc\n");
     int size = lseek(manfd, 0, SEEK_END);
+    lseek(manfd, 0, SEEK_SET);
     char manifest[size+1];
     int bytesRead = 0, status = 0;
     do{
@@ -247,6 +251,7 @@ void* performUpgradeServer(int socket, void* arg){
         bytesRead+= status;
     }while(status!= 0);
     manifest[size] = '\0';
+    printf("%s\n", manifest);
     close(manfd);
     char* manifestmsg = messageHandler(manifest);
     write(socket, manifestmsg, strlen(manifestmsg));
@@ -257,9 +262,10 @@ void* performUpgradeServer(int socket, void* arg){
         char* filepath = readNClient(socket, readSizeClient(socket));
         int fd = open(filepath, O_RDONLY);
         int fileSize = (int) lseek(fd, 0, SEEK_END);
-        char file[fileSize];
+        char file[fileSize+1];
         lseek(fd, 0, SEEK_SET);
         bytesRead = 0; status =0;
+        //printf("fi%sle: %s\n", "\0", filepath);
         do{
             status = read(fd, file + bytesRead, fileSize-bytesRead);
             if(status < 0){
@@ -268,13 +274,21 @@ void* performUpgradeServer(int socket, void* arg){
             }
             bytesRead+= status;
         }while(status!=0);
+        file[fileSize] = '\0';
+        //printf("%d to %d\n", fileSize, bytesRead);
         close(fd);
         char* fileToSend = messageHandler(file);
         char* fileNameToSend = messageHandler(filepath);
-        write(socket, fileNameToSend, strlen(fileNameToSend));
-        write(socket, fileToSend, strlen(fileToSend));
+        char* thing = malloc(strlen(fileToSend) + strlen(fileNameToSend)+1);
+        sprintf(thing, "%s%s", fileNameToSend, fileToSend);
+        //printf("File: %s\tContent: %s\n", fileNameToSend, fileToSend);
+        // write(socket, fileNameToSend, strlen(fileNameToSend));
+        // write(socket, fileToSend, strlen(fileToSend));
+        //write(socket, thing, strlen(thing));
+        printf("Sent:\t%s", thing);
         free(fileToSend);
         free(filepath);
+        free(thing);
     }
     pthread_mutex_unlock(&(found->mutex));
     pthread_mutex_unlock(&headLock);

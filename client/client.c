@@ -741,9 +741,10 @@ int performUpgrade(int sockfd, char** argv, char* updatePath){
         return 1;
     }
     char manifestFile[(strlen(argv[2]) + 11)];
-    sprintf(manifestFile, "%s/.Manifest", argv[1]);
+    sprintf(manifestFile, "%s/.Manifest", argv[2]);
     remove(manifestFile);
     char* manifest = readNClient(sockfd, readSizeClient(sockfd));
+    printf("%s\n", manifest);
     int manfd = open(manifestFile, O_WRONLY | O_CREAT, 00600);
     writeString(manfd, manifest);
     close(manfd);
@@ -769,7 +770,8 @@ int performUpgrade(int sockfd, char** argv, char* updatePath){
         switch(update[i]){
             case 'A':
             case 'M':{
-                int end = i +2;
+                i = i+2;
+                int end = i;
                 while(update[end] != ' ') end++;
                 char filename[end-i+1]; bzero(filename, end-i+1);
                 strncpy(filename, &update[i], end-i);
@@ -779,7 +781,8 @@ int performUpgrade(int sockfd, char** argv, char* updatePath){
                 char* fileAndSize = messageHandler(filename);
                 track+= strlen(fileAndSize);
                 char* temp = (char*) malloc(track + 2);
-                sprintf(temp, "%s:%s", addFile, fileAndSize);
+                sprintf(temp, "%s%s", addFile, fileAndSize);
+                printf("%s\n", temp);
                 free(addFile);
                 free(fileAndSize);
                 addFile = temp;
@@ -790,7 +793,7 @@ int performUpgrade(int sockfd, char** argv, char* updatePath){
     }
     //shuld have a string of all files to download and replace on client side separated by colons here. 
     char* temp = malloc(track+2+11);
-    sprintf(temp, "%d%s", numFiles, addFile);
+    sprintf(temp, "%d:%s", numFiles, addFile);
     free(addFile);
     addFile = temp;
     write(sockfd, addFile, track+2+11);
@@ -799,6 +802,7 @@ int performUpgrade(int sockfd, char** argv, char* updatePath){
         char* filePath = readNClient(sockfd, readSizeClient(sockfd));
         int fd = open(filePath, O_CREAT | O_WRONLY, 00600);
         char* fileCont = readNClient(sockfd, readSizeClient(sockfd));
+        printf("Received:\n%s\n%s\n", filePath, fileCont);
         writeString(fd, fileCont);
         close(fd);
         free(filePath);
