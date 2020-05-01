@@ -209,13 +209,48 @@ void* switchCase(void* arg){
 }
 
 void* performUpgradeServer(int socket, void* arg){
+    
+    char* confirmation = readNClient(socket, readSizeClient(socket));
+    if(!strcmp(confirmation, "Conflict")){
+        printf("There is a Conflict.\n");
+        free(confirmation);
+        return;
+    } 
+    else if(!strcmp(confirmation, "Update")){
+        printf("No update file.\n");
+        free(confirmation);
+        return;
+    }
+    char *projName = readNClient(socket, readSizeClient(socket));
     pthread_mutex_lock(&headLock);
-    int bytes = readSizeClient(socket);
-    char projName[bytes +1];
-    read(socket, projName, bytes);
     node* found = findNode(((data*) arg)->head, projName);
+    if(found == NULL){
+        printf("Cannot find project with given name\n");
+        pthread_mutex_unlock(&headLock);
+        free(projName);
+        return;
+    }
     //check if found is null i dont do it but we should
     pthread_mutex_lock(&(found->mutex));
+    char manifestFile[strlen(projName) + 11];
+    sprintf(manifestFile, "%s/.Manifest", projName);
+    int manfd = open(manifestFile, O_RDONLY);
+    int size = lseek(manfd, 0, SEEK_END);
+    char manifest[size+1];
+    int bytesRead = 0, status = 0;
+    do{
+        status = read(manfd, manifest+bytesRead, size-bytesRead);
+        if(status < 0){
+            close(manfd);
+            error("Fatal Error: Unable to read .Manifest\n");
+        }
+        bytesRead+= status;
+    }while(status!= 0);
+    manifest[size] = '\0';
+    close(manfd);
+    char* manifestmsg = messageHandler(manifest);
+    write(socket, manifestmsg, strlen(manifestmsg));
+    free(manifestmsg);
     int numFiles = readSizeClient(socket);
     int i;
     for(i = 0; i < numFiles; i++){
@@ -224,7 +259,7 @@ void* performUpgradeServer(int socket, void* arg){
         int fileSize = (int) lseek(fd, 0, SEEK_END);
         char file[fileSize];
         lseek(fd, 0, SEEK_SET);
-        int bytesRead = 0, status =0;
+        bytesRead = 0; status =0;
         do{
             status = read(fd, file + bytesRead, fileSize-bytesRead);
             if(status < 0){
