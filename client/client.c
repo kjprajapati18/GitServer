@@ -798,11 +798,12 @@ int performUpgrade(int sockfd, char** argv, char* updatePath){
     addFile = temp;
     write(sockfd, addFile, track+2+11);
     i = 0;
+    sleep(3);
     for(i = 0; i< numFiles; i++){
         char* filePath = readNClient(sockfd, readSizeClient(sockfd));
         int fd = open(filePath, O_CREAT | O_WRONLY, 00600);
         char* fileCont = readNClient(sockfd, readSizeClient(sockfd));
-        printf("Received:\n%s\n%s\n", filePath, fileCont);
+        printf("Received from socket %d:\n%s\n%s\n", sockfd, filePath, fileCont);
         writeString(fd, fileCont);
         close(fd);
         free(filePath);

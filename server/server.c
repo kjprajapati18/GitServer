@@ -256,7 +256,9 @@ void* performUpgradeServer(int socket, void* arg){
     char* manifestmsg = messageHandler(manifest);
     write(socket, manifestmsg, strlen(manifestmsg));
     free(manifestmsg);
+    //char bigboi[11];
     int numFiles = readSizeClient(socket);
+    printf("# of files: %d", numFiles);
     int i;
     for(i = 0; i < numFiles; i++){
         char* filepath = readNClient(socket, readSizeClient(socket));
@@ -284,7 +286,8 @@ void* performUpgradeServer(int socket, void* arg){
         //printf("File: %s\tContent: %s\n", fileNameToSend, fileToSend);
         // write(socket, fileNameToSend, strlen(fileNameToSend));
         // write(socket, fileToSend, strlen(fileToSend));
-        //write(socket, thing, strlen(thing));
+        write(socket, thing, strlen(thing));
+        printf("Socket: %d", socket);
         printf("Sent:\t%s", thing);
         free(fileToSend);
         free(filepath);
