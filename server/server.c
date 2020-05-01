@@ -69,6 +69,9 @@ void joinAll(threadList* head);
 void printLL(node* head);
 
 int main(int argc, char* argv[]){
+
+    if(argc != 2) error("Fatal Error: Please enter 1 number as the argument (port)\n");
+
     signal(SIGINT, interruptHandler);
     setbuf(stdout, NULL);
     int newsockfd;
