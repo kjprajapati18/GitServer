@@ -145,24 +145,23 @@ int main(int argc, char* argv[]){
             write(sockfd, "4:Done", 6);
             break; 
         case upgrade:{ 
-            int len = strlen(argv[1]);
+            int len = strlen(argv[2]);
             char dotfilepath[len + 11]; dotfilepath[0] = '\0';
-            sprintf(dotfilepath, "%s/.Conflict", argv[1]);
+            sprintf(dotfilepath, "%s/.Conflict", argv[2]);
             if(open(dotfilepath, O_RDONLY) > 0){
-                printf("Conflicts exist. Please resolve all conflicts and update");
+                printf("Conflicts exist. Please resolve all conflicts and update\n");
+                write(sockfd, "8:Conflict", 10);
                 return -1;
             }
             bzero(dotfilepath, len+9);
-            sprintf(dotfilepath, "%s/.Conflict", argv[1]);
-            if(open(dotfilepath, O_RDONLY) > 0){
-                printf("Conflicts exist. Please resolve all conflicts and update");
-                return -1;
-            }
-            sprintf(dotfilepath, "%s/.Update", argv[1]);
+            sprintf(dotfilepath, "%s/.Update", argv[2]);
+            printf("%s\n", dotfilepath);
             if(open(dotfilepath, O_RDONLY)< 0) {
                 printf("No openable update file available. First run an update before upgrading\n");
+                write(sockfd, "6:Update", 8);
                 return -1;
             }
+            write(sockfd, "4:Succ", 6);
             performUpgrade(sockfd, argv, dotfilepath);
             break;}
         case commit: 
@@ -517,8 +516,8 @@ command argCheck(int argc, char* arg){
         else printf("Fatal Error: update requires only 1 additional argument (project name)\n");
     }
     else if(strcmp(arg, "upgrade") == 0) {
-        if(argc == 2) mode = upgrade;
-        else printf("Fatal Error: upgrade requires one argument (project name). Proper usage is ./WTF upgrade <projectName>\n");
+        if(argc == 3) mode = upgrade;
+        else printf("Fatal Error: upgrade requires 1 argument (project name). Proper usage is ./WTF upgrade <projectName>\n");
     }
     else if(strcmp(arg, "commit") == 0) mode = commit;
     else if(strcmp(arg, "create") == 0){
@@ -731,7 +730,7 @@ int performUpdate(int sockfd, char** argv){
 }
 
 int performUpgrade(int sockfd, char** argv, char* updatePath){
-    char* projName = messageHandler(argv[1]);
+    char* projName = messageHandler(argv[2]);
     write(sockfd, projName, strlen(projName)+1);
     int updatefd = open(updatePath, O_RDONLY);
     int size = lseek(updatefd, 0, SEEK_END);
@@ -741,7 +740,7 @@ int performUpgrade(int sockfd, char** argv, char* updatePath){
         remove(updatePath);
         return 1;
     }
-    char manifestFile[(strlen(argv[1]) + 11)];
+    char manifestFile[(strlen(argv[2]) + 11)];
     sprintf(manifestFile, "%s/.Manifest", argv[1]);
     remove(manifestFile);
     char* manifest = readNClient(sockfd, readSizeClient(sockfd));

@@ -206,11 +206,27 @@ void* switchCase(void* arg){
 }
 
 void* performUpgradeServer(int socket, void* arg){
+    
+    char* confirmation = readNClient(socket, readSizeClient(socket));
+    if(!strcmp(confirmation, "Conflict")){
+        printf("There is a Conflict.\n");
+        free(confirmation);
+        return;
+    } 
+    else if(!strcmp(confirmation, "Update")){
+        printf("No update file.\n");
+        free(confirmation);
+        return;
+    }
+    char *projName = readNClient(socket, readSizeClient(socket));
     pthread_mutex_lock(&headLock);
-    int bytes = readSizeClient(socket);
-    char projName[bytes +1];
-    read(socket, projName, bytes);
     node* found = findNode(((data*) arg)->head, projName);
+    if(found == NULL){
+        printf("Cannot find project with given name\n");
+        pthread_mutex_unlock(&headLock);
+        free(projName);
+        return;
+    }
     //check if found is null i dont do it but we should
     pthread_mutex_lock(&(found->mutex));
     char manifestFile[strlen(projName) + 11];
