@@ -680,7 +680,7 @@ int performUpdate(int sockfd, char** argv){
         serverFileVer = serverPtr; clientFileVer= clientPtr;
         //finds the next space, since that is the end of the file version.
         //Sets that space to be \0 so that file version string can be accessed by FileVer pointers;
-        //Advance the ptr 1 extra time to get to the start of the next token
+        //Advance the ptr 1 extra time to get to the start of the next token pog
         //Convert file version to int
         advanceToken(&serverPtr, ' ');
         advanceToken(&clientPtr, ' ');
