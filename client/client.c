@@ -10,7 +10,7 @@
 #include <unistd.h>
 #include <openssl/md5.h>
 #include <dirent.h>
-
+#include <sys/select.h>
 #include <signal.h>
 
 #include "../sharedFunctions.h"
@@ -50,6 +50,7 @@ int manDifferencesCDM(int, int, avlNode*, avlNode*);
 int manDifferencesA(int, int, avlNode*, avlNode*);
 
 int main(int argc, char* argv[]){
+    setbuf(stdout, NULL);
     //int sockfd;
     signal(SIGINT, interruptHandler);
     int port;
@@ -796,12 +797,12 @@ int performUpgrade(int sockfd, char** argv, char* updatePath){
     sprintf(temp, "%d:%s", numFiles, addFile);
     free(addFile);
     addFile = temp;
-    write(sockfd, addFile, track+2+11);
+    write(sockfd, addFile, strlen(addFile));
+    free(addFile);
     i = 0;
-    sleep(3);
     for(i = 0; i< numFiles; i++){
         char* filePath = readNClient(sockfd, readSizeClient(sockfd));
-        int fd = open(filePath, O_CREAT | O_WRONLY, 00600);
+        int fd = fileCreator(filePath);
         char* fileCont = readNClient(sockfd, readSizeClient(sockfd));
         printf("Received from socket %d:\n%s\n%s\n", sockfd, filePath, fileCont);
         writeString(fd, fileCont);
@@ -809,7 +810,25 @@ int performUpgrade(int sockfd, char** argv, char* updatePath){
         free(filePath);
         free(fileCont);
     }
-    free(addFile);
+    write(sockfd, "Succ", 4);
+    printf("Wrote\n");
+    remove(updatePath);
+}
+
+int fileCreator(char* path){
+    int fd = open(path, O_CREAT | O_WRONLY, 00600);
+    int i = strlen(path) -1;
+    while(fd < 0 && i >= 0){
+        while(path[i] != '/' && i >=0){
+            i--;
+        }
+        path[i] = '\0';
+        mkdir(path, 0777);
+        path[i] = '/';
+        i--;
+        fd = open(path, O_CREAT | O_WRONLY, 00600);
+    }
+    return fd;
 }
 
 char* hash(char* path){

@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <dirent.h>
+#include <sys/select.h>
 
 #include "../sharedFunctions.h"
 
@@ -287,12 +288,14 @@ void* performUpgradeServer(int socket, void* arg){
         // write(socket, fileNameToSend, strlen(fileNameToSend));
         // write(socket, fileToSend, strlen(fileToSend));
         write(socket, thing, strlen(thing));
-        printf("Socket: %d", socket);
-        printf("Sent:\t%s", thing);
+        printf("Sent:\t%s\n", thing);
         free(fileToSend);
         free(filepath);
         free(thing);
     }
+    char succ[5]; succ[4] = '\0';
+    read(socket, succ, 4);
+    printf("succ msg: %s\n", succ); 
     pthread_mutex_unlock(&(found->mutex));
     pthread_mutex_unlock(&headLock);
 
