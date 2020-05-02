@@ -220,10 +220,46 @@ void* performPushServer(int socket, void* arg){
         free(confirmation);
         return;
     }
+    char* projName = readNClient(socket, readSizeClient(socket));
+    printf("%s\n", projName);
+    pthread_mutex_lock(&headLock);
+    node* found = findNode(((data*) arg)->head, projName);
+    //if found is null do something
+    pthread_mutex_lock(&(found->mutex));
+    char commitPath[strlen(projName) + 9];
+    sprintf(commitPath, "%s/.Commit", projName);
+    int commitfd = open(commitPath, O_RDONLY);
+    int size = lseek(commitfd, 0, SEEK_END);
+    char commit[size+1];
+    int bytesRead = 0, status = 0;
+    do{
+        status = read(commitfd, commit+bytesRead, size-bytesRead);
+        if(status < 0){
+            close(commitfd);
+            error("Fatal error: unable to read .Commit\n");
+        }
+        bytesRead+= status;
+    }while(status!=0);
+    commit[size] = '\0';
+    close(commitfd);
+    char* servercommithash = hash(commit);
+    char* clientcommit = readNClient(socket, readSizeClient(socket));
+    char* clientcommithash = hash(clientcommit);
+    if(strcmp(clientcommithash, servercommithash)){
+        printf("Commits do not match, terminating\n");
+        write(socket, "Fail", 4);
+        pthread_mutex_unlock(&(found->mutex));
+        pthread_mutex_unlcok(&headLock);
+        return;
+    }
+    else{
+        printf("Commits match up\n");
+        write(socket, "Succ", 4);
+    }
+
 }
 
 void* performUpgradeServer(int socket, void* arg){
-    
     char* confirmation = readNClient(socket, readSizeClient(socket));
     if(!strcmp(confirmation, "Conflict")){
         printf("There is a Conflict.\n");
