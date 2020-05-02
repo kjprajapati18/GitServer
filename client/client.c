@@ -168,8 +168,10 @@ int main(int argc, char* argv[]){
             break;}
         case commit: 
             printf("commit\n");
+            performCommit(sockfd, argv);
+            write(sockfd, "4:Done", 6);
             break;
-        case push: 
+        case push:{ 
             int len = strlen(argv[2]);
             char dotfilepath[len+11]; dotfilepath[0] = '\0';
             sprintf(dotfilepath, "%s/.Commit", argv[2]);
@@ -181,7 +183,7 @@ int main(int argc, char* argv[]){
             char* projName = messageHandler(argv[1]);
             write(sockfd, projName, strlen(projName));
             performPush(sockfd, argv, dotfilepath);
-            break;
+            break;}
         case create:{
             performCreate(sockfd, argv);
             break;}
@@ -681,46 +683,7 @@ int performUpdate(int sockfd, char** argv){
     printf("Pog2\n");
     manDifferencesA(updatefd, conflictfd, clientHead, serverHead);
     
-    //Check every entry in client Manifest to server manifest
-    
 
-    /*while(*serverPtr != '\0' && *clientPtr != '\0'){
-        //Extract the version #, filepath, and hash code from this line of the manifests
-
-        //Points to beginning of File version (so we are not duplicating any data)
-        serverFileVer = serverPtr; clientFileVer= clientPtr;
-        //finds the next space, since that is the end of the file version.
-        //Sets that space to be \0 so that file version string can be accessed by FileVer pointers;
-        //Advance the ptr 1 extra time to get to the start of the next token pog
-        //Convert file version to int
-        advanceToken(&serverPtr, ' ');
-        advanceToken(&clientPtr, ' ');
-        serverFileVerNum = atoi(serverFileVer); clientFileVerNum = atoi(clientFileVer);
-
-        //Perform a similar logic to extract path and Hash
-        serverFilePath = serverPtr; clientFilePath = clientPtr;
-        advanceToken(&serverPtr, ' ');      
-        advanceToken(&clientPtr, ' ');
-
-        serverFileHash = serverPtr; clientFileHash = clientPtr;
-        advanceToken(&serverPtr, '\n');
-        advanceToken(&clientPtr, '\n');
-
-        /*while(strcmp(serverFilePath, clientFilePath)){
-            //Files do not match, which means that the file on client was deleted on server
-
-        }
-        //After all of that, we have finally tokenized 1 line of each Manifest.
-        /*printf("Server File Ver: %s/%d\n", serverFileVer, serverFileVerNum);
-        printf("Server File Path: %s\n", serverFilePath);
-        printf("Server File Hash: %s\n", serverFileHash);
-        printf("Client File Ver: %s/%d\n", clientFileVer, clientFileVerNum);
-        printf("Client File Path: %s\n", clientFilePath);
-        printf("Client File Hash: %s\n\n", clientFileHash);*/
-
-        //Check for 
-
-    //}
     if(serverHead != NULL)freeAvl(serverHead);
     if(clientHead != NULL)freeAvl(clientHead);
     free(serverMan);
@@ -739,6 +702,41 @@ int performUpdate(int sockfd, char** argv){
         printf("Conflicts were found and must be resolved before the project can be updated\n");
     }
     return 0;
+}
+
+int performCommit(int socket, char** argv){
+/*
+    int projNameLen = strlen(argv[2]);
+    char sendFile[12+projNameLen)];
+    sprintf(sendFile, "%d:%s", projNameLen, argv[2]);
+    write(sockfd, sendFile, strlen(sendFile));
+
+    char manPath[projNameLen + 12];
+    sprintf(manPath, "%s/.Manifest", projName);
+    int check = sendFile(socket, manPath);
+    if(check == 0)printf("Successfully sent current version to server\n");
+    else printf("Something went wrong with sendManifest (%d)\n", check);
+
+    char* confirm = readNClient(socket, readSizeClient(socket));
+    if(!strcmp(confirm, "Success")){
+        printf("Successful Commit!\n");
+    } else {
+        printf("Error: %s\n", confirm);
+    }
+    free(confirm);*/
+
+    /* FOR CLIENT
+
+        Copy update function basically but remove the .conflict part
+        Make sure to add check to make sure that manifest are matched
+        Create new functiosn that check through the AVL for the .commits
+        close the .commit
+        send the file to server
+        end on confirmation
+
+    */
+
+
 }
 
 int performUpgrade(int sockfd, char** argv, char* updatePath){

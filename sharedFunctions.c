@@ -44,3 +44,37 @@ char* messageHandler(char* msg){
     sprintf(returnMsg, "%d:%s", size, msg);
     return returnMsg;
 }
+
+//Writes #:Data for manifest 
+//# is the size of the Manifest while Data is the actual content
+int sendFile(int sockfd, char* pathName){
+
+    int manifest = open(pathName, O_RDONLY);
+    if(manifest < 0) return 2;
+    int fileSize = (int) lseek(manifest, 0, SEEK_END);
+    lseek(manifest, 0, SEEK_SET);
+    
+    int pathLen = strlen(pathName);
+
+    int sendSize = pathLen + 26 + fileSize; //26 accounts for : and digits in string and \0
+    char* fileData = (char*) malloc(sizeof(char) * (sendSize)); bzero(fileData, sendSize);
+    
+    sprintf(fileData, "%d:%s%d:", pathLen, pathName, fileSize);
+
+    int status = 0, bytesRead = 0, start = strlen(fileData);
+    
+    do{
+        status = read(manifest, fileData + bytesRead+start, fileSize - bytesRead);
+        bytesRead += status;
+    }while(status > 0 && bytesRead < fileSize);
+    
+    close(manifest);
+    if(status < 0){
+        free(fileData);
+        return 1;
+    }
+
+    write(sockfd, fileData, start+bytesRead);    
+    free(fileData);
+    return 0;
+}

@@ -10,4 +10,6 @@ char* readNClient(int socket, int size);
 int readSizeClient(int socket);
 char* messageHandler(char* msg);
 
+int sendFile(int sockfd, char* pathName);
+
 #endif
