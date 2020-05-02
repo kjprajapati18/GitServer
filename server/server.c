@@ -33,6 +33,7 @@ void* performCurVer(int, void*);
 void performHistory(int, void*);
 void performUpdate(int, void*);
 void* performUpgradeServer(int, void*);
+void* performPushServer(int, void*);
 //char* messageHandler(char* msg);
 int sendFile(int sockfd, char* pathName);
 
@@ -205,8 +206,20 @@ void* switchCase(void* arg){
         case history:
             performHistory(newsockfd, arg);
             break;
+        case push:
+            performPushServer(newsockfd, arg);
+            break;
     }
     close(newsockfd);
+}
+
+void* performPushServer(int socket, void* arg){
+    char* confirmation = readNClient(socket, readSizeClient(socket));
+    if(!strcmp(confirmation, "Commit")){
+        printf("There is no commit file. \n");
+        free(confirmation);
+        return;
+    }
 }
 
 void* performUpgradeServer(int socket, void* arg){
@@ -226,6 +239,7 @@ void* performUpgradeServer(int socket, void* arg){
     printf("%s\n", projName);
     pthread_mutex_lock(&headLock);
     node* found = findNode(((data*) arg)->head, projName);
+    //gotta do something here to inform client. give it an ok
     if(found == NULL){
         printf("Cannot find project with given name\n");
         pthread_mutex_unlock(&headLock);

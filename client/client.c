@@ -40,7 +40,6 @@ void sendServerCommand(int socket, char* command, int comLen);
 char* getConfigInfo(int config, int* port);
 int writeString(int fd, char* string);
 char* hash(char* path);
-
 int performCreate(int socket, char** argv);
 void printCurVer(char* manifest);
 int performUpdate(int sockfd, char** argv);
@@ -48,6 +47,8 @@ command argCheck(int argc, char* arg);
 void advanceToken(char** ptr, char delimiter);
 int manDifferencesCDM(int, int, avlNode*, avlNode*);
 int manDifferencesA(int, int, avlNode*, avlNode*);
+int performPush(int, char**, char*);
+int performUpgrade(int, char**, char*);
 
 int main(int argc, char* argv[]){
     setbuf(stdout, NULL);
@@ -169,7 +170,17 @@ int main(int argc, char* argv[]){
             printf("commit\n");
             break;
         case push: 
-            printf("push\n");
+            int len = strlen(argv[2]);
+            char dotfilepath[len+11]; dotfilepath[0] = '\0';
+            sprintf(dotfilepath, "%s/.Commit", argv[2]);
+            if(open(dotfilepath, O_RDONLY) < 0){
+                printf("No .Commit file detected. Please run commit first");
+                write(sockfd, "6:Commit", 8);
+                return -1;
+            }
+            char* projName = messageHandler(argv[1]);
+            write(sockfd, projName, strlen(projName));
+            performPush(sockfd, argv, dotfilepath);
             break;
         case create:{
             performCreate(sockfd, argv);
@@ -813,6 +824,7 @@ int performUpgrade(int sockfd, char** argv, char* updatePath){
     write(sockfd, "Succ", 4);
     printf("Wrote\n");
     remove(updatePath);
+    return 0;
 }
 
 int fileCreator(char* path){
@@ -829,6 +841,11 @@ int fileCreator(char* path){
         fd = open(path, O_CREAT | O_WRONLY, 00600);
     }
     return fd;
+}
+
+int performPush(int sockfd, char**argv, char* commitPath){
+    
+
 }
 
 char* hash(char* path){
