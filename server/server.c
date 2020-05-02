@@ -37,7 +37,7 @@ void performHistory(int, void*);
 void performUpdate(int, void*);
 void* performUpgradeServer(int, void*);
 void* performPushServer(int, void*);
-void* performCommit(int, void*);
+void* performCommit(int, void*, char*);
 //char* messageHandler(char* msg);
 char* hash(char* path);
 
@@ -63,6 +63,7 @@ typedef struct _node2{
 typedef struct _data{
     node* head;
     int socketfd;
+    char* clientIP;
 } data;
 
 
@@ -147,11 +148,22 @@ int main(int argc, char* argv[]){
             continue;
         }
 
-        //printf("server accepted client with IP%s\n", clientIP);
-        //switch case on mode corresponding to the enum in client.c. make thread for each function.
+        //Get client IP
+        struct sockaddr_in* pV4Addr = (struct sockaddr_in*)&cliaddr;
+        struct in_addr ipAddr = pV4Addr->sin_addr;
+        char clientIP[INET_ADDRSTRLEN];
+        inet_ntop(AF_INET, &ipAddr, clientIP, INET_ADDRSTRLEN);
+
+        printf("Server accepted client with IP %s\n", clientIP);
+        
         //thread part  //chatting between client and server
         pthread_t thread_id;
         info->socketfd = newsockfd;
+        
+        //Handle sending in IP. This will get freed by the thread that takes it
+        info->clientIP = (char*) malloc((strlen(clientIP)+1) * sizeof(char));
+        strcpy(info->clientIP, clientIP);
+        //printf("%s\n", info->clientIP);
         if(pthread_create(&thread_id, NULL, switchCase, info) != 0){
             error("thread creation error");
         } else {
@@ -178,6 +190,7 @@ void* switchCase(void* arg){
     //RECREATE ALL PERFORM FUNCTIONS TO TAKE IN ARGS CUZ SOCKET CHANGES
     //AND WE PASS SOCKET AFTER CHECKIGN THROUGH THE SWITCH CASE
     int newsockfd = ((data*) arg)->socketfd; //PASS THIS IN
+    char* clientIP = ((data*) arg)->clientIP;
     int bytes;
     char cmd[3];
     bzero(cmd, 3);
@@ -214,10 +227,11 @@ void* switchCase(void* arg){
             performPushServer(newsockfd, arg);
             break;
         case commit:
-            performCommit(newsockfd, arg);
+            performCommit(newsockfd, arg, clientIP);
             break;
     }
     close(newsockfd);
+    free(clientIP);
     printf("Disconnected from client\n");
 }
 
@@ -695,7 +709,7 @@ void performUpdate(int socket, void* arg){
 
 */
 
-void* performCommit(int socket, void* arg){
+void* performCommit(int socket, void* arg, char* clientIP){
     //WRITE BTTER BY CHECKING IF IT FAILED. MAKE SURE TO ADD FAIL CHECKS ON BOTH SIDES
     //Try to get rid of these god damn nested ifs
     int bytes = readSizeClient(socket);
@@ -750,18 +764,8 @@ void* performCommit(int socket, void* arg){
             }
             char* commitData = readNClient(socket, readSizeClient(socket));
             
-            char clientIP[20];
-            sprintf(clientIP, "%s", "local");
-            /* SOMEHOW GET IP ADDRESS PLS
-            struct sockaddr_in addr;
-            socklen_t addr_size = sizeof(struct sockaddr_in);
-            int res = getpeername(socket, (struct sockaddr *)&addr, &addr_size);
-            printf("here\n");
-            sprintf(clientIP, "%d", inet_ntoa(addr.sin_addr));
-            printf("not here\n");
-            printf("The client's IP is %s", clientIP);*/
             int clientIPLen = strlen(clientIP);
-            
+            //printf("%s\n%d\n", clientIP, clientIPLen);
             char commitIP[pathLen + clientIPLen + 2];
             sprintf(commitIP, "%s-%s", commitPath, clientIP);
             remove(commitIP);

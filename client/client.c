@@ -788,6 +788,7 @@ int performCommit(int sockfd, char** argv){
         if(commitWriteStatus == 0) printf("Cannot Commit. There are no local changes!\n");
     } else {
         sendFile(sockfd, commitPath);
+        printf("Sucessfully sent and created .Commit files on client and server\n");
     }
     /*printf("Pog1\n");
     manDifferencesCDM(updatefd, conflictfd, clientHead, serverHead);
@@ -800,7 +801,6 @@ int performCommit(int sockfd, char** argv){
     free(serverManVer);
     free(clientMan);
     read(sockfd, commitPath, 12);   //Wait until the server is done before closing socket
-    printf("Sucessfully sent and created .Commit files on client and server\n");
     return 0;
 /*
     char manPath[projNameLen + 12];
