@@ -178,7 +178,8 @@ int main(int argc, char* argv[]){
                 write(sockfd, "6:Commit", 8);
                 return -1;
             }
-            char* projName = messageHandler(argv[1]);
+            write(sockfd, "4:Succ", 6);
+            char* projName = messageHandler(argv[2]);
             write(sockfd, projName, strlen(projName));
             performPush(sockfd, argv, dotfilepath);
             break;
@@ -826,7 +827,7 @@ int performUpgrade(int sockfd, char** argv, char* updatePath){
     remove(updatePath);
     return 0;
 }
-
+//make sure to remove file before creating it;
 int fileCreator(char* path){
     int fd = open(path, O_CREAT | O_WRONLY, 00600);
     int i = strlen(path) -1;
@@ -844,7 +845,67 @@ int fileCreator(char* path){
 }
 
 int performPush(int sockfd, char**argv, char* commitPath){
-    
+    //send the .commit
+    int commitfd = open(commitPath, O_RDONLY);
+    int size = lseek(commitfd, 0, SEEK_END);
+    char commit[size+1];
+    int bytesRead = 0, status = 0;
+    do{
+        status = read(commitfd, commit+bytesRead, size-bytesRead);
+        if(status < 0){
+            close(commitfd);
+            error("Fatal error: unable to read .Commit\n");
+        }
+        bytesRead+= status;
+    }while(status!=0);
+    commit[size] = '\0';
+    close(commitfd);
+    char* commitmsg = messageHandler(commit);
+    write(sockfd, commitmsg, strlen(commitmsg));
+    free(commitmsg);
+    //check success of commit compare
+    char succ[5]; succ[4] = '\0';
+    read(socket, succ, 4);
+    if(strcmp(succ, "Fail")){
+        printf("commits did not match up\n");
+        return -1;
+    }
+    int i = 0, numAddFiles = 0, numDelFiles = 0;
+    char* addFile = (char*) malloc(1); addFile[0] = '\0';
+    char* delFile = (char*) malloc(1); delFile[0] = '\0';
+    int addTrack = 0, delTrack = 0;
+    for(i = 0; i < size+1; i++){
+        switch(commit[i]){
+            case 'D':{
+                int i = i+1;
+                int end = i;
+                while(commit[end] != ' ') end++;
+                char filename[end-i+1]; bzero(filename, end-i+1);
+                strncpy(filename, &update[i], end-i);
+                filename[end-i] = '\0';
+                numDelFiles++;
+                char* fileAndSize = messageHandler(filename);
+                delTrack+= strlen(fileAndSize);
+                char* temp = (char*) malloc(delTrack+2);
+                sprintf(temp, "%s%s", delFile, fileAndSize);
+                free(delFile);
+                free(fileAndSize)
+                delFile = temp;
+                break;
+            }
+            case 'A':
+            case 'M':{
+                i = i+2;
+                int end = i;
+                while(commit[end] != ' ') end++;
+                char filename[end-i+1]; bzero(filename, end-i+1);
+                strncpy(filename, &commit[i], end-i);
+                filename[end-i] = '\0';
+                numAddFiles++;
+                char* fileAndSize = messageHandler(filename);
+            }
+        }
+    }
 
 }
 
