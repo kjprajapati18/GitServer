@@ -13,6 +13,8 @@
 #include <dirent.h>
 #include <sys/select.h>
 
+#include <openssl/md5.h>
+
 #include "../sharedFunctions.h"
 #include "../avl.h"
 
@@ -36,6 +38,7 @@ void performUpdate(int, void*);
 void* performUpgradeServer(int, void*);
 void* performPushServer(int, void*);
 //char* messageHandler(char* msg);
+char* hash(char* path);
 
 int killProgram = 0;
 int sockfd;
@@ -249,7 +252,7 @@ void* performPushServer(int socket, void* arg){
         printf("Commits do not match, terminating\n");
         write(socket, "Fail", 4);
         pthread_mutex_unlock(&(found->mutex));
-        pthread_mutex_unlcok(&headLock);
+        pthread_mutex_unlock(&headLock);
         return;
     }
     else{
@@ -810,3 +813,33 @@ int performCommmit(int sockfd, char** argv){
     
     return 0;
 }*/
+
+
+char* hash(char* path){
+    unsigned char c[MD5_DIGEST_LENGTH];
+    int fd = open(path, O_RDONLY);
+    MD5_CTX mdContext;
+    int bytes;
+    unsigned char buffer[256];
+    if(fd < 0){
+        //printf("cannot open file");
+        return NULL;
+    }
+    MD5_Init(&mdContext);
+    do{
+        bzero(buffer, 256);
+        bytes = read(fd, buffer, 256);
+        MD5_Update (&mdContext, buffer, bytes);
+    }while(bytes > 0);
+    MD5_Final(c, &mdContext);
+    close(fd);
+    int i;
+    char* hash = (char*) malloc(32); bzero(hash, 32);
+    char buf[3];
+    for(i = 0; i < MD5_DIGEST_LENGTH; i++) {
+        sprintf(buf, "%02x", c[i]);
+        strcat(hash, buf);
+    }
+    return hash;
+
+}

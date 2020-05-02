@@ -863,8 +863,8 @@ int performPush(int sockfd, char**argv, char* commitPath){
     free(commitmsg);
     //check success of commit compare
     char succ[5]; succ[4] = '\0';
-    read(socket, succ, 4);
-    if(strcmp(succ, "Fail")){
+    read(sockfd, succ, 4);
+    if(!strcmp(succ, "Fail")){
         printf("commits did not match up\n");
         return -1;
     }
@@ -879,7 +879,7 @@ int performPush(int sockfd, char**argv, char* commitPath){
                 int end = i;
                 while(commit[end] != ' ') end++;
                 char filename[end-i+1]; bzero(filename, end-i+1);
-                strncpy(filename, &update[i], end-i);
+                strncpy(filename, &commit[i], end-i);
                 filename[end-i] = '\0';
                 numDelFiles++;
                 char* fileAndSize = messageHandler(filename);
@@ -887,7 +887,7 @@ int performPush(int sockfd, char**argv, char* commitPath){
                 char* temp = (char*) malloc(delTrack+2);
                 sprintf(temp, "%s%s", delFile, fileAndSize);
                 free(delFile);
-                free(fileAndSize)
+                free(fileAndSize);
                 delFile = temp;
                 break;
             }
