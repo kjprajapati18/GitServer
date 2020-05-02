@@ -37,6 +37,7 @@ void performHistory(int, void*);
 void performUpdate(int, void*);
 void* performUpgradeServer(int, void*);
 void* performPushServer(int, void*);
+void* performCommit(int, void*);
 //char* messageHandler(char* msg);
 char* hash(char* path);
 
@@ -145,8 +146,8 @@ int main(int argc, char* argv[]){
             printf("server could not accept a client\n");
             continue;
         }
-        //printf("server accepted client\n");
 
+        //printf("server accepted client with IP%s\n", clientIP);
         //switch case on mode corresponding to the enum in client.c. make thread for each function.
         //thread part  //chatting between client and server
         pthread_t thread_id;
@@ -212,8 +213,12 @@ void* switchCase(void* arg){
         case push:
             performPushServer(newsockfd, arg);
             break;
+        case commit:
+            performCommit(newsockfd, arg);
+            break;
     }
     close(newsockfd);
+    printf("Disconnected from client\n");
 }
 
 void* performPushServer(int socket, void* arg){
@@ -689,9 +694,91 @@ void performUpdate(int socket, void* arg){
     Then unlock
 
 */
-/*
-int performCommmit(int sockfd, char** argv){
-    //Check that the project exists locally (TURN TO ONE FUNCTION)
+
+void* performCommit(int socket, void* arg){
+    //WRITE BTTER BY CHECKING IF IT FAILED. MAKE SURE TO ADD FAIL CHECKS ON BOTH SIDES
+    //Try to get rid of these god damn nested ifs
+    int bytes = readSizeClient(socket);
+    char projName[bytes + 1];
+    read(socket, projName, bytes);
+    projName[bytes] = '\0';
+    
+    node* found = findNode(((data*) arg)->head, projName);
+    int check = 0;
+    if(found == NULL) {
+        printf("Could not find project with that name. Cannot find current version (%s)\n", projName);
+        char* returnMsg = messageHandler("Could not find project with that name to perform current verison");
+        int bytecheck = write(socket, returnMsg, strlen(returnMsg));
+        free(returnMsg);
+    }else{
+        pthread_mutex_lock(&(found->mutex));
+        int projNameLen = strlen(projName);
+        char manPath[projNameLen + 12];
+        sprintf(manPath, "%s/.Manifest", projName);
+        int manfd = open(manPath, O_RDONLY);
+        
+        char verNum[12];
+        int bytesRead = 0, status = 0;
+        do{
+            status = read(manfd, verNum + bytesRead, 1);
+            bytesRead += status;
+        }while(status > 0 && *(verNum + bytesRead-status) != '\n');
+
+        close(manfd);
+        verNum[bytesRead-1] = '\0';
+        
+        if(status < 0 || bytesRead ==0 || *verNum == '\n'){
+            printf("Failed reading manifest\n");
+            sendFail(socket);
+            return NULL;
+        }
+
+        //Client doesnt need the whole manifest, only the version number
+        char* sendVerNum = messageHandler(verNum);
+        int sendVerNumLen = strlen(sendVerNum);
+        int check = write(socket, sendVerNum, sendVerNumLen);
+
+        if(check == sendVerNumLen){
+            printf("Successfully sent manifest to client\n");
+            int pathLen = readSizeClient(socket);
+            char* commitPath = readNClient(socket, pathLen);
+            if(!strcmp("fail", commitPath)){
+                printf("Client could not complete commit request. Terminating...\n");
+                free(commitPath);
+                pthread_mutex_unlock(&(found->mutex));
+                return NULL;
+            }
+            char* commitData = readNClient(socket, readSizeClient(socket));
+            
+            char clientIP[20];
+            sprintf(clientIP, "%s", "local");
+            /* SOMEHOW GET IP ADDRESS PLS
+            struct sockaddr_in addr;
+            socklen_t addr_size = sizeof(struct sockaddr_in);
+            int res = getpeername(socket, (struct sockaddr *)&addr, &addr_size);
+            printf("here\n");
+            sprintf(clientIP, "%d", inet_ntoa(addr.sin_addr));
+            printf("not here\n");
+            printf("The client's IP is %s", clientIP);*/
+            int clientIPLen = strlen(clientIP);
+            
+            char commitIP[pathLen + clientIPLen + 2];
+            sprintf(commitIP, "%s-%s", commitPath, clientIP);
+            remove(commitIP);
+            int commitfd = open(commitIP, O_WRONLY | O_CREAT, 00600);
+            writeString(commitfd, commitData);
+
+            free(commitPath);
+            free(commitData);
+            close(commitfd);
+            write(socket, "yerrrrrrrrrr", 12);
+        }else{
+            printf("Something went wrong with sendFile (%d)\n", check);
+        }
+        pthread_mutex_unlock(&(found->mutex));
+    }
+    
+    /*//Check that the project exists locally (TURN TO ONE FUNCTION)
     int nameSize = readSizeClient(socket);
     char projName[nameSize + 1];
     read(socket, projName, bytes);
@@ -811,8 +898,8 @@ int performCommmit(int sockfd, char** argv){
     close(updatefd);
 
     
-    return 0;
-}*/
+    return 0;*/
+}
 
 
 char* hash(char* path){
