@@ -240,13 +240,16 @@ void* switchCase(void* arg){
     printf("Disconnected from client\n");
 }
 
-void*performRollback(int socket, void* arg){
+//free stuff
+void* performRollback(int socket, void* arg){
     char* projName =readNClient(socket, readSizeClient(socket));
-    if(opendir(projName) != NULL) write(socket, "Succ", 4);
-    else {
+    node* found = findNode(((data*) arg)->head, projName);
+    if(found == NULL){
+        printf("Cannot find project with given name");
         write(socket, "Fail", 4);
         return;
     }
+    else write(socket, "succ", 4);
     char* verNumString = readNClient(socket, readSizeClient(socket));
     char projVerPath[strlen(projName) + strlen(verNumString) + 2];
     sprintf(projVerPath, "%s/.%d",projName, atoi(verNumString));
