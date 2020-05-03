@@ -166,14 +166,14 @@ void* performUpgradeServer(int socket, void* arg){
     if(found == NULL){
         printf("Cannot find project with given name\n");
         free(projName);
+        write(socket, "fail", 4);
         return;
     }
-    //check if found is null i dont do it but we should
     pthread_mutex_lock(&(found->mutex));
     char manifestFile[strlen(projName) + 11];
     sprintf(manifestFile, "%s/.Manifest", projName);
     printf("%s\n", manifestFile);
-    int manfd = open(manifestFile, O_RDONLY);
+    /*int manfd = open(manifestFile, O_RDONLY);
     if(manfd < 0) printf("dumbbutc\n");
     int size = lseek(manfd, 0, SEEK_END);
     lseek(manfd, 0, SEEK_SET);
@@ -187,19 +187,21 @@ void* performUpgradeServer(int socket, void* arg){
         }
         bytesRead+= status;
     }while(status!= 0);
-    manifest[size] = '\0';
+    manifest[size] = '\0';*/
+    char* manifest = stringFromFile(manifestFile);
     printf("%s\n", manifest);
-    close(manfd);
+    //close(manfd);
     char* manifestmsg = messageHandler(manifest);
     write(socket, manifestmsg, strlen(manifestmsg));
     free(manifestmsg);
+    free(manifest);
     //char bigboi[11];
     int numFiles = readSizeClient(socket);
     printf("# of files: %d", numFiles);
     int i;
     for(i = 0; i < numFiles; i++){
         char* filepath = readNClient(socket, readSizeClient(socket));
-        int fd = open(filepath, O_RDONLY);
+        /*int fd = open(filepath, O_RDONLY);
         int fileSize = (int) lseek(fd, 0, SEEK_END);
         char file[fileSize+1];
         lseek(fd, 0, SEEK_SET);
@@ -213,9 +215,10 @@ void* performUpgradeServer(int socket, void* arg){
             }
             bytesRead+= status;
         }while(status!=0);
-        file[fileSize] = '\0';
+        file[fileSize] = '\0';*/
         //printf("%d to %d\n", fileSize, bytesRead);
-        close(fd);
+        //close(fd);
+        char* file = stringFromFile(filepath);
         char* fileToSend = messageHandler(file);
         char* fileNameToSend = messageHandler(filepath);
         char* thing = malloc(strlen(fileToSend) + strlen(fileNameToSend)+1);
@@ -228,6 +231,7 @@ void* performUpgradeServer(int socket, void* arg){
         free(fileToSend);
         free(filepath);
         free(thing);
+        free(file);
     }
     char succ[5]; succ[4] = '\0';
     read(socket, succ, 4);

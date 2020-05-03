@@ -118,7 +118,7 @@ char* stringFromFile(char* path){
     int status = 0, bytesRead = 0;
     int fileSize = (int) lseek(fd, 0, SEEK_END);
     char* fileData = (char*) malloc((fileSize+1)*sizeof(char));
-
+    fileData[fileSize] = '\0';
     lseek(fd, 0, SEEK_SET);
     do{
         status = read(fd, fileData + bytesRead, fileSize - bytesRead);
