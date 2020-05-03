@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <openssl/md5.h>
 
 #include "sharedFunctions.h"
 
@@ -131,4 +132,33 @@ char* stringFromFile(char* path){
         return NULL;
     }
     return fileData;
+}
+
+char* hash(char* path){
+    unsigned char c[MD5_DIGEST_LENGTH];
+    int fd = open(path, O_RDONLY);
+    MD5_CTX mdContext;
+    int bytes;
+    unsigned char buffer[256];
+    if(fd < 0){
+        //printf("cannot open file");
+        return NULL;
+    }
+    MD5_Init(&mdContext);
+    do{
+        bzero(buffer, 256);
+        bytes = read(fd, buffer, 256);
+        MD5_Update (&mdContext, buffer, bytes);
+    }while(bytes > 0);
+    MD5_Final(c, &mdContext);
+    close(fd);
+    int i;
+    char* hash = (char*) malloc(33); bzero(hash, 33);
+    char buf[3];
+    for(i = 0; i < MD5_DIGEST_LENGTH; i++) {
+        sprintf(buf, "%02x", c[i]);
+        strcat(hash, buf);
+    }
+    return hash;
+
 }

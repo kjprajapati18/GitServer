@@ -12,7 +12,6 @@
 #include <pthread.h>
 #include <dirent.h>
 #include <sys/select.h>
-#include <openssl/md5.h>
 
 
 #include "linkedList.h"

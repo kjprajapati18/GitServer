@@ -9,7 +9,7 @@ avl.o: avl.c
 	gcc -c avl.c
 
 serverOperations.o: serverOperations.c
-	gcc -c serverOperations.c -pthread -lssl -lcrypto
+	gcc -c serverOperations.c -pthread
 
 clientOperations.o: clientOperations.c
 	gcc -c clientOperations.c
