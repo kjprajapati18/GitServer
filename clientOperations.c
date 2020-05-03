@@ -677,7 +677,7 @@ int performUpgrade(int sockfd, char** argv, char* updatePath){
     int updatefd = open(updatePath, O_RDONLY);
     int size = lseek(updatefd, 0, SEEK_END);
     if(size==0){
-        printf("Project is up to date");
+        printf("Project is up to date\n");
         close(updatefd);
         remove(updatePath);
         return 1;
