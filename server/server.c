@@ -18,9 +18,9 @@
 
 /*  
     --SINCE WE CLOSE THE socket on SIGINT, I think that the clients won't be able to write back to server
-    --MOVE SENDFILE to shared functiosns
     --We can make a readFindProject function since it is basically the same for all performs
     --performCurVer && performUpdate are exact same code since all the server needs to do is send the Manifest
+    --Let threads remove themselves from LINKED LIST OF JOINS
     --Do stuff mentioned in client todo list
 */
 pthread_mutex_t headLock; 
@@ -753,9 +753,20 @@ void* performCheckout(int socket, void* arg){
         sendFail(socket);
         return;    
     }
-    
+
+    write(socket, "4:succ", 6);
+    char* confirm = readNClient(socket, readSizeClient(socket));
+    if(!strcmp("fail", confirm)){
+        free(confirm);
+        printf("Client failed checkout. Client already has a project folder\n");
+        return NULL;
+    }
+    free(confirm);
+
     pthread_mutex_lock(&(found->mutex));
+
     int projNameLen = strlen(projName);
+    /*
     char manPath[projNameLen + 12];
     sprintf(manPath, "%s/.Manifest", projName);
     
@@ -765,14 +776,57 @@ void* performCheckout(int socket, void* arg){
         printf("Manifest found but unable to be read");
         sendFail(socket);
         return;
-    }
+    }*/
 
+/*
     //Send all the needed files
     char* manPtr = manifest;
-    advanceToken(&manPtr, '\n');
+    advanceToken(&manPtr, '\n'); //Get rid of version #
+    avlNode* server = fillAvl(&manPtr); //Create an AVL tree using manifest*/
+    
+    int compressLength = projNameLen*4 + 75;
+    char* compressCommand = (char*) malloc(compressLength *sizeof(char));
+    sprintf(compressCommand, "tar -czvf %s.tar.gz %s --exclude=%s/.Commi* --exclude=%s/.History --exclude=%s/.*/", projName, projName, projName, projName, projName);
+    system(compressCommand);
+    free(compressCommand);
 
+    char tarPath[projNameLen+9];
+    sprintf(tarPath, "%s.tar.gz", projName);
 
-    char* confirm = readNClient(socket, readSizeClient(socket));
+    int tarFd = open(tarPath, O_RDONLY);
+    int bytesRead = 0, status = 0;
+    int tarSize = lseek(tarFd, 0, SEEK_END);
+    lseek(tarFd, 0, SEEK_SET);
+    char* tarData = (char*) malloc(tarSize +1);
+    do{
+        status = read(tarFd, tarData + bytesRead, tarSize - bytesRead);
+        bytesRead+=status;
+    }while(status > 0);
+    close(tarFd);
+    //char* tarData = stringFromFile(tarPath);
+    remove(tarPath);
+    //sprintf(tarPath, "%s2.tar.gz", projName);
+    int tarPathLen = strlen(tarPath);
+    
+    char sendBuffer[tarPathLen+tarSize+27];
+    sprintf(sendBuffer, "%d:%s%d:", tarPathLen, tarPath, tarSize);
+    write(socket, sendBuffer, strlen(sendBuffer));
+    write(socket, tarData, tarSize);
+
+    //int tarFileDescriptor = open(tarPath, O_CREAT | O_WRONLY, 00700);
+    //int writeCheck = writeNString(tarFileDescriptor, tarData, tarSize);
+    /*if(writeCheck < 0) printf("THERES A PROBLEM BOI\n");
+    close(tarFileDescriptor);
+    char untarCommand[strlen("tar -xzvf  -C tmp/")+strlen(tarPath)+5];
+    sprintf(untarCommand, "tar -xzvf %s -C tmp/", tarPath);
+    system(untarCommand);*/
+
+    confirm = readNClient(socket, readSizeClient(socket));
+    if(!strcmp(confirm, "succ")){
+        printf("Client successfully received project: %s\n", projName);
+    } else {
+        printf("Client failed to received project: %s\n", projName);
+    }
     free(confirm);
     pthread_mutex_unlock(&(found->mutex));
     return;

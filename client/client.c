@@ -1236,15 +1236,54 @@ int performCheckout(int sockfd, char** argv){
     char* projName = messageHandler(argv[2]);
     write(sockfd, projName, strlen(projName));
 
+
     //Read Manifest from the server (TURN THIS AND NEXT INTO 1 FUNCTION);
-    char* serverManPath = readNClient(sockfd, readSizeClient(sockfd)); 
+    char* confirm = readNClient(sockfd, readSizeClient(sockfd)); 
     //printf("ServerManVer:\n%s\n", serverManVer);
-    if(!strcmp("fail", serverManPath)){
+    if(!strcmp("fail", confirm)){
         printf("The project does not exist on the server side\n");
-        free(serverManPath);
+        free(confirm);
+        return -1;
+    }
+    free(confirm);
+
+    DIR* project = opendir(argv[2]);
+    if(project != NULL){
+        closedir(project);
+        printf("The project folder already exists on the client. Please delete it before checkout \n");
+        sendFail(sockfd);
+        return -1;
+    }
+    write(sockfd, "4:succ", 6);
+    
+    int tarFilePathLen = readSizeClient(sockfd);
+    char* tarFilePath = readNClient(sockfd, tarFilePathLen);
+    int tarFileDataLen = readSizeClient(sockfd);
+    char* tarFile = (char*) malloc(sizeof(char) * tarFileDataLen); 
+    int checkTar = read(sockfd, tarFile, tarFileDataLen);
+    if(checkTar < 0){
+        printf("Could not read files from server\n");
+        free(tarFilePath); free(tarFile);
+        sendFail(sockfd);
         return -1;
     }
 
+    int tarFd = open(tarFilePath, O_WRONLY | O_CREAT, 00700);
+    if(tarFd < 0){
+        printf("Could not create files\n");
+        free(tarFilePath); free(tarFile);
+        sendFail(sockfd);
+        return -1;
+    }
+    writeNString(tarFd, tarFile, tarFileDataLen);
+    close(tarFd);
+    
+    char tarCommand[12+tarFilePathLen];
+    sprintf(tarCommand, "tar -xzvf %s", tarFilePath);
+    system(tarCommand);
+    //remove(tarFilePath);
+
+/*
     //If the previous line was not a fail, then it was the file path. Grab the actual data
     char* serverMan = readNClient(sockfd, readSizeClient(sockfd));
     if(!strcmp(serverMan, "fail")){
@@ -1282,7 +1321,7 @@ int performCheckout(int sockfd, char** argv){
         close(currentFileDescriptor);
         free(currentFilePath);
         free(currentFileData);
-    }
+    }*/
 
     write(sockfd, "4:succ", 6);
     free(projName);
