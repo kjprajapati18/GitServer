@@ -760,7 +760,7 @@ void* performCheckout(int socket, void* arg){
     sprintf(manPath, "%s/.Manifest", projName);
     
     //Open Manifest
-    char* manifest = readFile(manPath);
+    char* manifest = stringFromFile(manPath);
     if(manifest == NULL){
         printf("Manifest found but unable to be read");
         sendFail(socket);
