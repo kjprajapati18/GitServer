@@ -50,6 +50,8 @@ int manDifferencesA(int, int, avlNode*, avlNode*);
 int performPush(int, char**, char*);
 int performUpgrade(int, char**, char*);
 int commitManDiff(int, avlNode*, int);
+int performCheckout(int, char**);
+
 
 int main(int argc, char* argv[]){
     setbuf(stdout, NULL);
@@ -141,6 +143,7 @@ int main(int argc, char* argv[]){
     switch(mode){
         case checkout:
             printf("checkout\n");
+            performCheckout(sockfd, argv);
             break;
         case update:          
             printf("update\n");
@@ -592,6 +595,7 @@ int performUpdate(int sockfd, char** argv){
     }
 
     //Read Manifest from the server (TURN THIS AND NEXT INTO 1 FUNCTION);
+    //TURN THIS INTO A CHECK FOR FAIL
     free(readNClient(sockfd, readSizeClient(sockfd))); //Throw away the file path
     int serverManSize = readSizeClient(sockfd);
     char* serverMan = readNClient(sockfd, serverManSize);
@@ -917,7 +921,9 @@ int performUpgrade(int sockfd, char** argv, char* updatePath){
 //make sure to remove file before creating it;
 int fileCreator(char* path){
     int fd = open(path, O_CREAT | O_WRONLY, 00600);
-    int i = strlen(path) -1;
+    if(fd > 0) return fd;
+
+    int i = strlen(path);
     while(fd < 0 && i >= 0){
         while(path[i] != '/' && i >=0){
             i--;
@@ -1170,4 +1176,62 @@ int commitManDiff(int commitfd, avlNode* clientHead, int status){
     status = commitManDiff(commitfd, clientHead->left, status);
     status = commitManDiff(commitfd, clientHead->right, status);
     return status;
+}
+
+int performCheckout(int sockfd, char** argv){
+    //Write project name to server
+    char* projName = messageHandler(argv[2]);
+    write(sockfd, projName, strlen(projName));
+
+    //Read Manifest from the server (TURN THIS AND NEXT INTO 1 FUNCTION);
+    char* serverManPath = readNClient(sockfd, readSizeClient(sockfd)); 
+    //printf("ServerManVer:\n%s\n", serverManVer);
+    if(!strcmp("fail", serverManPath)){
+        printf("The project does not exist on the server side\n");
+        free(serverManPath);
+        return -1;
+    }
+
+    //If the previous line was not a fail, then it was the file path. Grab the actual data
+    char* serverMan = readNClient(sockfd, readSizeClient(sockfd));
+    if(!strcmp(serverMan, "fail")){
+        free(serverMan);
+        free(serverManPath);
+        printf("Server Manifest could not read\n");
+        return -1;
+    }
+    mkdir(argv[2], 0777);
+
+    int manifest = open(serverManPath, O_CREAT | O_WRONLY, 00600);
+    writeString(manifest, serverMan);
+
+    char* currentFilePath = malloc(1);
+    char* currentFileData = malloc(1);
+
+    //Now that we know that the project exists, we can just loop for each file
+    while(1){
+        currentFilePath = readNClient(sockfd, readSizeClient(sockfd));
+        if(!strcmp(currentFilePath, "Done")){
+            free(currentFilePath);
+            break;
+        }
+        currentFileData = readNClient(sockfd, readSizeClient(sockfd));
+
+        int currentFileDescriptor = fileCreator(currentFilePath);
+        if(currentFileDescriptor < 0){
+            printf("Error: Could not create file at location %s. Terminating...");
+            free(currentFilePath); free(currentFileData);
+            sendFail(sockfd);
+            return -1;
+        }
+        writeString(currentFileDescriptor, currentFileData);
+        
+        close(currentFileDescriptor);
+        free(currentFilePath);
+        free(currentFileData);
+    }
+
+    write(sockfd, "4:succ", 6);
+    free(projName);
+    return 0;
 }

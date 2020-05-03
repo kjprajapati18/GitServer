@@ -13,5 +13,6 @@ char* messageHandler(char* msg);
 int sendFile(int sockfd, char* pathName);
 int writeString(int fd, char* string);
 void sendFail(int socket);
+char* readFile(char* path);
 
 #endif

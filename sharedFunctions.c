@@ -47,6 +47,7 @@ char* messageHandler(char* msg){
 
 //Writes #:Data for manifest 
 //# is the size of the Manifest while Data is the actual content
+//REPLACE A BUNCH OF THESE LINES WITH readFile(path)
 int sendFile(int sockfd, char* pathName){
 
     int manifest = open(pathName, O_RDONLY);
@@ -94,7 +95,27 @@ int writeString(int fd, char* string){
 }
 
 void sendFail(int socket){
-    char* fail = messageHandler("fail");
-    write(socket, fail, 6);
-    free(fail);
+    write(socket, "4:fail", 6);
+}
+
+char* readFile(char* path){
+    int fd = open(path, O_RDONLY);
+    if(fd < 0) return NULL;
+
+    int status = 0, bytesRead = 0;
+    int fileSize = (int) lseek(fd, 0, SEEK_END);
+    char* fileData = (char*) malloc((fileSize+1)*sizeof(char));
+
+    lseek(fd, 0, SEEK_SET);
+    do{
+        status = read(fd, fileData + bytesRead, fileSize - bytesRead);
+        bytesRead += status;
+    }while(status > 0 && bytesRead < fileSize);
+    
+    close(fd);
+    if(status < 0){
+        free(fileData);
+        return NULL;
+    }
+    return fileData;
 }
