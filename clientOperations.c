@@ -1069,74 +1069,42 @@ int performCheckout(int sockfd, char** argv){
     }
     write(sockfd, "4:succ", 6);
     
-    int tarFilePathLen = readSizeClient(sockfd);
-    char* tarFilePath = readNClient(sockfd, tarFilePathLen);
-    int tarFileDataLen = readSizeClient(sockfd);
-    char* tarFile = (char*) malloc(sizeof(char) * tarFileDataLen); 
-    int checkTar = read(sockfd, tarFile, tarFileDataLen);
-    if(checkTar < 0){
-        printf("Could not read files from server\n");
-        free(tarFilePath); free(tarFile);
+    char* tarFilePath = readWriteTarFile(sockfd);
+    if(tarFilePath == NULL){
+        free(projName);
         sendFail(sockfd);
         return -1;
     }
+    int tarFilePathLen = strlen(tarFilePath);
+    // int tarFilePathLen = readSizeClient(sockfd);
+    // char* tarFilePath = readNClient(sockfd, tarFilePathLen);
+    // int tarFileDataLen = readSizeClient(sockfd);
+    // char* tarFile = (char*) malloc(sizeof(char) * tarFileDataLen); 
+    // int checkTar = read(sockfd, tarFile, tarFileDataLen);
+    // if(checkTar < 0){
+    //     printf("Could not read files from server\n");
+    //     free(tarFilePath); free(tarFile);
+    //     sendFail(sockfd);
+    //     return -1;
+    // }
 
-    int tarFd = open(tarFilePath, O_WRONLY | O_CREAT, 00700);
-    if(tarFd < 0){
-        printf("Could not create files\n");
-        free(tarFilePath); free(tarFile);
-        sendFail(sockfd);
-        return -1;
-    }
-    writeNString(tarFd, tarFile, tarFileDataLen);
-    close(tarFd);
+    // int tarFd = open(tarFilePath, O_WRONLY | O_CREAT, 00700);
+    // if(tarFd < 0){
+    //     printf("Could not create files\n");
+    //     free(tarFilePath); free(tarFile);
+    //     sendFail(sockfd);
+    //     return -1;
+    // }
+    // writeNString(tarFd, tarFile, tarFileDataLen);
+    // close(tarFd);
     
     char tarCommand[12+tarFilePathLen];
     sprintf(tarCommand, "tar -xzvf %s", tarFilePath);
     system(tarCommand);
     remove(tarFilePath);
 
-
-    /*//If the previous line was not a fail, then it was the file path. Grab the actual data
-    char* serverMan = readNClient(sockfd, readSizeClient(sockfd));
-    if(!strcmp(serverMan, "fail")){
-        free(serverMan);
-        free(serverManPath);
-        printf("Server Manifest could not read\n");
-        return -1;
-    }
-    mkdir(argv[2], 0777);
-
-    int manifest = open(serverManPath, O_CREAT | O_WRONLY, 00600);
-    writeString(manifest, serverMan);
-
-    char* currentFilePath = malloc(1);
-    char* currentFileData = malloc(1);
-
-    //Now that we know that the project exists, we can just loop for each file
-    while(1){
-        currentFilePath = readNClient(sockfd, readSizeClient(sockfd));
-        if(!strcmp(currentFilePath, "Done")){
-            free(currentFilePath);
-            break;
-        }
-        currentFileData = readNClient(sockfd, readSizeClient(sockfd));
-
-        int currentFileDescriptor = fileCreator(currentFilePath);
-        if(currentFileDescriptor < 0){
-            printf("Error: Could not create file at location %s. Terminating...");
-            free(currentFilePath); free(currentFileData);
-            sendFail(sockfd);
-            return -1;
-        }
-        writeString(currentFileDescriptor, currentFileData);
-        
-        close(currentFileDescriptor);
-        free(currentFilePath);
-        free(currentFileData);
-    }*/
-
     write(sockfd, "4:succ", 6);
     free(projName);
+    free(tarFilePath);
     return 0;
 }

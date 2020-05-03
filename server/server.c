@@ -21,10 +21,6 @@
 
 
 /*  
-    --SINCE WE CLOSE THE socket on SIGINT, I think that the clients won't be able to write back to server
-    --We can make a readFindProject function since it is basically the same for all performs
-    --performCurVer && performUpdate are exact same code since all the server needs to do is send the Manifest
-    --Let threads remove themselves from LINKED LIST OF JOINS
     --Do stuff mentioned in client todo list
 */
 

@@ -1,3 +1,5 @@
-0
-0A ./testProject/bigBoi.txt 678f7acc621ed286b7c2b1e0ee50d2e0
-0A ./testProject/biggerBoi/thing.txt 654c2bfc241a8626c35401bebf0efaa6
+4
+1 ./testProject/bigBoi.txt 678f7acc621ed286b7c2b1e0ee50d2e0
+0 ./testProject/actualTest.txt 5d75e15a05bf4eeaee9e581f9360e14e
+0 ./testProject/bigger.txt e0cb1da8823a475f276cf1a89a42751e
+0 ./testProject/biggerBoi/thing.txt 654c2bfc241a8626c35401bebf0efaa6
