@@ -36,6 +36,7 @@ void performUpdate(int, void*);
 void* performUpgradeServer(int, void*);
 void* performPushServer(int, void*);
 void* performCommit(int, void*, char*);
+void* performCheckout(int, void*);
 //char* messageHandler(char* msg);
 //int sendFile(int sockfd, char* pathName);
 char* hash(char*);
@@ -226,6 +227,9 @@ void* switchCase(void* arg){
             break;
         case commit:
             performCommit(newsockfd, arg, clientIP);
+            break;
+        case checkout:
+            performCheckout(newsockfd, arg);
             break;
     }
     close(newsockfd);
@@ -738,9 +742,44 @@ void performUpdate(int socket, void* arg){
     return;
 }
 
-//Writes #:Data for manifest 
-//# is the size of the Manifest while Data is the actual content
-//int sendFile(int sockfd, char* pathName){
+void* performCheckout(int socket, void* arg){
+    int bytes = readSizeClient(socket);
+    char projName[bytes + 1];
+    read(socket, projName, bytes);
+    projName[bytes] = '\0';
+
+    
+    node* found = findNode(((data*) arg)->head, projName);
+    int check = 0;
+    if(found == NULL) {
+        printf("Could not find project with that name. Cannot find current version (%s)\n", projName);
+        sendFail(socket);
+        return;    
+    }
+    
+    pthread_mutex_lock(&(found->mutex));
+    int projNameLen = strlen(projName);
+    char manPath[projNameLen + 12];
+    sprintf(manPath, "%s/.Manifest", projName);
+    
+    //Open Manifest
+    char* manifest = stringFromFile(manPath);
+    if(manifest == NULL){
+        printf("Manifest found but unable to be read");
+        sendFail(socket);
+        return;
+    }
+
+    //Send all the needed files
+    char* manPtr = manifest;
+    advanceToken(&manPtr, '\n');
+
+
+    char* confirm = readNClient(socket, readSizeClient(socket));
+    free(confirm);
+    pthread_mutex_unlock(&(found->mutex));
+    return;
+}
 
 void* performCommit(int socket, void* arg, char* clientIP){
     //WRITE BTTER BY CHECKING IF IT FAILED. MAKE SURE TO ADD FAIL CHECKS ON BOTH SIDES
