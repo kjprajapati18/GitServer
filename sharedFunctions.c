@@ -95,6 +95,18 @@ int writeString(int fd, char* string){
     return 0;
 }
 
+int writeNString(int fd, char* string, int len){
+    int status = 0, bytesWritten = 0, strLength = len;
+    
+    do{
+        status = write(fd, string + bytesWritten, strLength - bytesWritten);
+        bytesWritten += status;
+    }while(status > 0 && bytesWritten < strLength);
+    
+    if(status < 0) return 1;
+    return 0;
+}
+
 void sendFail(int socket){
     write(socket, "4:fail", 6);
 }
