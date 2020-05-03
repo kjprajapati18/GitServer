@@ -315,39 +315,65 @@ char* getConfigInfo(int config, int* port){
 command argCheck(int argc, char* arg){
     command mode = ERROR;
 
-    if(strcmp(arg, "checkout") == 0) mode = checkout;
+    if(strcmp(arg, "checkout") == 0){
+        if(argc == 3) mode = checkout;
+        else printf("Fatal Error: checkout requires only 1 additional argument (project name)\n");
+
+    }
     else if(strcmp(arg, "update") == 0){
         if(argc == 3) mode = update;
         else printf("Fatal Error: update requires only 1 additional argument (project name)\n");
+
     }
     else if(strcmp(arg, "upgrade") == 0) {
         if(argc == 3) mode = upgrade;
         else printf("Fatal Error: upgrade requires 1 argument (project name)\n");
+
     }
-    else if(strcmp(arg, "commit") == 0) mode = commit;
+    else if(strcmp(arg, "commit") == 0){
+        if(argc == 3) mode = commit;
+        else printf("Fatal Error: commit requires 1 argument (project name)\n");
+    }
     else if(strcmp(arg, "create") == 0){
         if(argc == 3) mode = create;
         else printf("Fatal Error: create requires only 1 additional argument (project name)\n");
+
     }
     else if(strcmp(arg, "destroy") == 0){
         if(argc == 3) mode = destroy;
         else printf("Fatal Error: destroy requires only 1 additional argument (project name)\n");
+
     }
-    else if(strcmp(arg, "add") == 0) mode = add;
-    else if(strcmp(arg, "remove") == 0) mode = rmv;
+    else if(strcmp(arg, "add") == 0){
+        if(argc == 4) mode = add;
+        else printf("Fatal Error: Not enough arguments for this command. Proper usage is: ./WTF add <projectName> <filename>");
+    
+    }
+    else if(strcmp(arg, "remove") == 0){
+        if(argc == 4) mode = rmv;
+        else printf("Fatal Error: Not enough arguments for this command. Proper usage is: ./WTF remove <projectName> <fileName>");
+
+    }
     else if(strcmp(arg, "currentversion") == 0){
         if(argc == 3) mode = currentversion;
         else printf("Fatal Error: currentversion requires only 1 additional argument (project name)\n");
+
     }
     else if(strcmp(arg, "history") == 0){
         if(argc == 3) mode = history;
         else printf("Fatal Error: history requires only 1 additional argument (project name)\n");
+
     }
     else if(strcmp(arg, "rollback") == 0){ 
         if(argc ==4) mode = rollback;
         else printf("Fatal Error: rollback requires 2 additional arguments (projectname and version number)\n");
     
     }
+    else if(strcmp(arg, "push") == 0){
+        if(argc == 3) mode = push;
+        else printf("Fatal Error: push requires only 1 additional argument (projectname)\n");
+    }
+
     return mode;
 }
 

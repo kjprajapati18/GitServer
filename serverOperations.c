@@ -23,13 +23,14 @@
 void* performCreate(int socket, void* arg){
 
     printf("Attempting to read project name...\n");
+    node** head = &(((data*) arg)->head);
     char* projectName = readNClient(socket, readSizeClient(socket));
     //find node check to see if it already exists in linked list
     //treat LL as list of projects for all purposes
     pthread_mutex_lock(&headLock);
-    ((data*) arg)->head = addNode(((data*) arg)->head, projectName);
+    *head = addNode(*head, projectName);
 
-    node* found = findNode(((data*) arg)->head, projectName);
+    node* found = findNode(*head, projectName);
     printf("Test found name: %s\n", found->proj);
     pthread_mutex_lock(&(found->mutex));
     int creation = createProject(socket, projectName);
@@ -38,9 +39,10 @@ void* performCreate(int socket, void* arg){
         
     if(creation < 0){
         write(socket, "fail:", 5);
-        ((data*) arg)->head = removeNode(((data*) arg)->head, projectName);
+        *head = removeNode(*head, projectName);
 
     }
+
     pthread_mutex_unlock(&headLock);
     free(projectName);
 }
@@ -48,11 +50,12 @@ void* performCreate(int socket, void* arg){
 
 void* performDestroy(int socket, void* arg){
     //fully lock this one prob
+    node** head = &(((data*) arg)->head);
     char* projName = readNClient(socket, readSizeClient(socket));
     //now projName has the string name of the file to destroy
     
     pthread_mutex_lock(&headLock);
-    node* found = findNode(((data*) arg)->head, projName);
+    node* found = findNode(*head, projName);
     if(found == NULL) {
         
         printf("Could not find project with that name to destroy (%s)\n", projName);
@@ -67,7 +70,7 @@ void* performDestroy(int socket, void* arg){
         recDest(projName);
         pthread_mutex_unlock(&(found->mutex));
 
-        ((data*) arg)->head = removeNode(((data*) arg)->head, "");
+        *head = removeNode(*head, "");
 
         char* returnMsg = messageHandler("Successfully destroyed project");
         printf("Notifying client\n");
@@ -336,12 +339,12 @@ void* performPushServer(int socket, void* arg){
 void* performCommit(int socket, void* arg, char* clientIP){
     //WRITE BTTER BY CHECKING IF IT FAILED. MAKE SURE TO ADD FAIL CHECKS ON BOTH SIDES
     //Try to get rid of these god damn nested ifs
-    int bytes = readSizeClient(socket);
-    char projName[bytes + 1];
-    read(socket, projName, bytes);
-    projName[bytes] = '\0';
+    //2 blocks are not freed!
+    node** head = &(((data*) arg)->head);
+    int projNameLen = readSizeClient(socket);
+    char* projName = readNClient(socket, projNameLen);   //REMEMBER TO FREE THIS!!!
     
-    node* found = findNode(((data*) arg)->head, projName);
+    node* found = findNode(*head, projName);
     int check = 0;
     if(found == NULL) {
         printf("Could not find project with that name. Cannot find current version (%s)\n", projName);
@@ -350,7 +353,6 @@ void* performCommit(int socket, void* arg, char* clientIP){
         free(returnMsg);
     }else{
         pthread_mutex_lock(&(found->mutex));
-        int projNameLen = strlen(projName);
         char manPath[projNameLen + 12];
         sprintf(manPath, "%s/.Manifest", projName);
         int manfd = open(manPath, O_RDONLY);
@@ -403,23 +405,25 @@ void* performCommit(int socket, void* arg, char* clientIP){
         }else{
             printf("Something went wrong with sendFile (%d)\n", check);
         }
+        
         pthread_mutex_unlock(&(found->mutex));
     }
 }
 
 
 void* performCheckout(int socket, void* arg){
-    int bytes = readSizeClient(socket);
-    char projName[bytes + 1];
-    read(socket, projName, bytes);
-    projName[bytes] = '\0';
+    //1 memory block lost!!
+    node** head = &(((data*) arg)->head);
+    int projNameLen = readSizeClient(socket);
+    char* projName = readNClient(socket, projNameLen);
 
     
-    node* found = findNode(((data*) arg)->head, projName);
+    node* found = findNode(*head, projName);
     int check = 0;
     if(found == NULL) {
         printf("Could not find project with that name. Cannot find current version (%s)\n", projName);
         sendFail(socket);
+        free(projName);
         return;    
     }
 
@@ -427,14 +431,13 @@ void* performCheckout(int socket, void* arg){
     char* confirm = readNClient(socket, readSizeClient(socket));
     if(!strcmp("fail", confirm)){
         free(confirm);
+        free(projName);
         printf("Client failed checkout. Client already has a project folder\n");
         return NULL;
     }
     free(confirm);
 
     pthread_mutex_lock(&(found->mutex));
-
-    int projNameLen = strlen(projName);
     
     int compressLength = projNameLen*4 + 75;
     char* compressCommand = (char*) malloc(compressLength *sizeof(char));
@@ -472,44 +475,49 @@ void* performCheckout(int socket, void* arg){
         printf("Client failed to received project: %s\n", projName);
     }
     free(confirm);
+    free(projName);
     pthread_mutex_unlock(&(found->mutex));
     return;
 }
 
 
 void* performRollback(int socket, void* arg){
-    char* projName = readNClient(socket, readSizeClient(socket));
-    node* found = findNode(((data*) arg)->head, projName);
+    node** head = &(((data*) arg)->head);
+    int projNameLen = readSizeClient(socket);
+    char* projName = readNClient(socket, projNameLen);
+
+    node* found = findNode(*head, projName);
     if(found == NULL){
         printf("Cannot find project with given name");
+        free(projName);
         write(socket, "fail", 4);
         return;
     }
     else write(socket, "succ", 4);
-    char* verNumString = readNClient(socket, readSizeClient(socket));
-    char projVerPath[strlen(projName) + strlen(verNumString) + 2];
-    sprintf(projVerPath, "%s/.%d",projName, atoi(verNumString));
-    if(opendir(projVerPath) != NULL) write(socket, "Succ", 4);
+
+    int verNumStringLen = readSizeClient(socket);
+    char* verNumString = readNClient(socket, verNumStringLen);
+    char projVerPath[projNameLen + verNumStringLen + 3];
+    sprintf(projVerPath, "%s/.%d", projName, atoi(verNumString));
+
+    DIR* dir = opendir(projVerPath);
+    if(dir != NULL) write(socket, "Succ", 4);
     else{
         write(socket, "fail", 4);
+        free(projName);
+        free(verNumString);
         return;
     }
-    char syscmd[5+strlen(projVerPath)+strlen(projName)];
+    closedir(dir);
+
+    char syscmd[10+projNameLen*2 + verNumStringLen];
     sprintf(syscmd, "mv %s .", projVerPath);
-    if(system(syscmd) == -1){
-        write(socket, "fail", 4);
-        return;
-    }
+    system(syscmd);
     sprintf(syscmd, "rm -r %s", projName);
-    if(system(syscmd) == -1){
-        write(socket, "fail", 4);
-        return;
-    }    
+    system(syscmd); 
     sprintf(syscmd, "mv %s %s", projVerPath, projName);
-    if(system(syscmd) == -1){
-        write(socket, "fail", 4);
-        return;
-    }
+    system(syscmd);
+    
     write(socket, "succ", 4);
     printf("Succesful rollback\n");
     return;

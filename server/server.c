@@ -165,17 +165,28 @@ void* switchCase(void* arg){
     data* info = (data*) arg;
     int newsockfd = info->socketfd; //PASS THIS IN
     char* clientIP = info->clientIP;
-    sleep(3);
+
     int bytes;
     char cmd[3];
     bzero(cmd, 3);
     bytes = write(newsockfd, "You are connected to the server", 32);
-    if(bytes < 0) error("Could not write to client");
+    if(bytes < 0){
+        printf("Could not write to client\n");
+        close(newsockfd);
+        free(clientIP);
+        return NULL;
+    }
 
     printf("Waiting for command..\n");
     bytes = read(newsockfd, cmd, 3);
     
-    if (bytes < 0) error("Could not read from client");
+    if (bytes < 0){
+        printf("Could not read from client\n");
+        close(newsockfd);
+        free(clientIP);
+        return NULL;
+    }
+    
     int mode = atoi(cmd);
     printf("Chosen Command: %d\n", mode);
 

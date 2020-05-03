@@ -59,18 +59,10 @@ int main(int argc, char* argv[]){
         return -1;
     }
     if(mode == add){
-        if(argc != 4){
-            printf("Not enough arguments for this command. Proper usage is: ./WTF add <projectName> <filename>");
-            return -1;
-        }
         performAdd(argv);
         return 0;
     }
-    else if(mode == rmv){
-        if(argc != 4){
-            printf("Not enough arguments for this command. Proper useage is: ./WTF remove <projectName> <fileName>");
-            return -1;
-        }
+    if(mode == rmv){
         performRemove(argv);
         return 0;
     }
