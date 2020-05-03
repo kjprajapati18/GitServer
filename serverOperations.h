@@ -7,7 +7,7 @@ void* performCurVer(int, void*);
 void performHistory(int, void*);
 //void performUpdate(int, void*);
 void* performUpgradeServer(int, void*);
-void* performPushServer(int, void*);
+void* performPushServer(int, void*, char*);
 void* performCommit(int, void*, char*);
 void* performCheckout(int, void*);
 void* performRollback(int, void*);

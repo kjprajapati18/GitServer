@@ -778,21 +778,12 @@ int fileCreator(char* path){
 
 int performPush(int sockfd, char**argv, char* commitPath){
     //send the .commit
-    int commitfd = open(commitPath, O_RDONLY);
-    int size = lseek(commitfd, 0, SEEK_END);
-    char commit[size+1];
-    int bytesRead = 0, status = 0;
-    do{
-        status = read(commitfd, commit+bytesRead, size-bytesRead);
-        if(status < 0){
-            close(commitfd);
-            error("Fatal error: unable to read .Commit\n");
-        }
-        bytesRead+= status;
-    }while(status!=0);
-    commit[size] = '\0';
-    close(commitfd);
+    
+    //close(commitfd);
+    printf("commitpath: %s\n", commitPath);
+    char* commit = stringFromFile(commitPath);
     char* commitmsg = messageHandler(commit);
+    printf("commitmsg: %s\n", commitmsg);
     write(sockfd, commitmsg, strlen(commitmsg));
     free(commitmsg);
     //check success of commit compare
@@ -806,7 +797,7 @@ int performPush(int sockfd, char**argv, char* commitPath){
     char* addFile = (char*) malloc(1); addFile[0] = '\0';
     char* delFile = (char*) malloc(1); delFile[0] = '\0';
     int addTrack = 0, delTrack = 0;
-    for(i = 0; i < size+1; i++){
+    for(i = 0; i < strlen(commit); i++){
         while(commit[i] >= '0' && commit[i] <= '9') i++;
         switch(commit[i]){
             case 'D':{
@@ -842,20 +833,7 @@ int performPush(int sockfd, char**argv, char* commitPath){
                 free(addFile);
                 free(fileAndSize);
                 addFile = temp;
-                int fd = open(filename, O_RDONLY);
-                size = lseek(fd, 0, SEEK_END);
-                char file[size+1];
-                bytesRead = 0; status = 0;
-                do{
-                    status = read(fd, file+bytesRead, size - bytesRead);
-                    if(status < 0){
-                        close(fd);
-                        error("Fatal error: unable to read file\n");
-                    }
-                    bytesRead+= status;
-                }while(status!=0);
-                file[size] = '\0';
-                close(fd);
+                char* file = stringFromFile(filename);
                 char* fileContandSize = messageHandler(file);
                 addTrack+= strlen(fileContandSize);
                 temp = (char*) malloc(addTrack +1);
@@ -892,6 +870,15 @@ int performPush(int sockfd, char**argv, char* commitPath){
     printf("Add Succ?: %s\n", succ);
     read(sockfd, succ, 4);
     printf("Final manifest success?: %s\n", succ);
+    remove(commitPath);
+    char manPath[strlen(argv[2]) + 11];
+    sprintf(manPath, "%s/.Manifest", argv[2]);
+    remove(manPath);
+    char* manifest = readNClient(sockfd, readSizeClient(sockfd));
+    int manfd = open(manPath, O_CREAT|O_WRONLY, 00600);
+    writeString(manfd, manifest);
+    write(sockfd, "succ", 4);
+    return 0;
 }
 
 void printCurVer(char* manifest){

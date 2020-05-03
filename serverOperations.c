@@ -197,7 +197,7 @@ void* performUpgradeServer(int socket, void* arg){
 }
 
 
-void* performPushServer(int socket, void* arg){
+void* performPushServer(int socket, void* arg, char* ip){
     char* confirmation = readNClient(socket, readSizeClient(socket));
     if(!strcmp(confirmation, "Commit")){
         printf("There is no commit file. \n");
@@ -217,17 +217,17 @@ void* performPushServer(int socket, void* arg){
     }
     pthread_mutex_lock(&(found->mutex));
     write(socket, "Succ", 4);
-    char commitPath[strlen(projName) + 9];
+    char commitPath[strlen(projName) + strlen(ip)+ 10];
     char manpath[strlen(projName) + 11];
     char hispath[strlen(projName) + 10];
     sprintf(hispath, "%s/.History", projName);
     sprintf(manpath, "%s/.Manifest", projName);
-    sprintf(commitPath, "%s/.Commit", projName);
+    sprintf(commitPath, "%s/.Commit-%s", projName, ip);
     char* commit = stringFromFile(commitPath);
-    char* servercommithash = hash(commit);
     char* clientcommit = readNClient(socket, readSizeClient(socket));
-    char* clientcommithash = hash(clientcommit);
-    if(strcmp(clientcommithash, servercommithash)){
+    printf("commit: %s", commit);
+    printf("client commit: %s", clientcommit);
+    if(strcmp(clientcommit, commit)){
         printf("Commits do not match, terminating\n");
         write(socket, "Fail", 4);
         pthread_mutex_unlock(&(found->mutex));
@@ -236,24 +236,29 @@ void* performPushServer(int socket, void* arg){
     }
     else{
         printf("Commits match up\n");
+        char command[13+strlen(projName)];
+        sprintf(command, "rm %s/.Commit*", projName);
+        system(command);
         write(socket, "Succ", 4);
     }
-    //write the commit to .history
-    int histfd = open(hispath, O_CREAT| O_WRONLY|O_APPEND, 00600);
-    writeString(histfd, commit);
-    writeString(histfd, "\n");
-    close(histfd);
+    
     //dupe directory and rename old one to version number 
     int index = 0; 
     while(commit[index] != '\n') index++;
     commit[index] = '\0';
     int verNum = atoi(commit);
     commit[index] = '\n';
-    char syscmd[23+2*strlen(projName)];
+    char syscmd[24+2*strlen(projName)];
     sprintf(syscmd, "cp -r %s old%s", projName, projName);
     system(syscmd);
-    sprintf(syscmd, "mv old%s %s/.%d", projName, projName, verNum); 
+    sprintf(syscmd, "mv old%s %s/.v%d", projName, projName, verNum); 
     system(syscmd);
+    //write the commit to .history
+    int histfd = open(hispath, O_CREAT| O_WRONLY|O_APPEND, 00600);
+    writeString(histfd, commit);
+    writeString(histfd, "\n");
+    close(histfd);
+    //start deletions
     int numFiles = readSizeClient(socket);
     int i = 0;
     for(i = 0; i< numFiles; i++){
@@ -284,6 +289,8 @@ void* performPushServer(int socket, void* arg){
     char* manifest = stringFromFile(manpath);
     char* manptr = manifest;
     char* commitptr = commit;
+    advanceToken(&commitptr, '\n');
+    advanceToken(&manptr, '\n');
     avlNode* commitHead = fillAvl(&commitptr);
     avlNode* manHead = fillAvl(&manptr);
     manHead = commitChanges(commitHead, manHead); 
@@ -299,6 +306,13 @@ void* performPushServer(int socket, void* arg){
     free(manifest);
     freeAvl(commitHead);
     freeAvl(manHead);
+    manifest = stringFromFile(manpath);
+    char* sendMani = messageHandler(manifest);
+    write(socket, sendMani, strlen(sendMani));
+    char succ[5]; succ[4] = '\0';
+    read(socket, succ, 4);
+    pthread_mutex_unlock(&(found->mutex));
+    return;
 }
 
 

@@ -210,7 +210,7 @@ void* switchCase(void* arg){
             performHistory(newsockfd, arg);
             break;
         case push:
-            performPushServer(newsockfd, arg);
+            performPushServer(newsockfd, arg, clientIP);
             break;
         case commit:
             performCommit(newsockfd, arg, clientIP);
