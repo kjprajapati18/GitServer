@@ -710,6 +710,31 @@ int performCommit(int sockfd, char** argv){
         return 1;
     }
 
+    //Check to make sure that there is no conflict or update file
+    char clientUpdatePath[projNameLen+10];
+    char clientConflictPath[projNameLen+10];
+    sprintf(clientUpdatePath, "%s/.Update", argv[2]);
+    sprintf(clientConflictPath, "%s/.Conflict", argv[2]);
+    int updatefd = open(clientUpdatePath, O_RDONLY);
+    int conflictfd = open(clientConflictPath, O_RDONLY);
+    int updateSize = 0;
+    if(updatefd > 0){
+        updateSize = lseek(updatefd, 0, SEEK_END);
+    }
+    close(updatefd);
+    close(conflictfd);
+
+    if(updateSize > 0){
+        printf("Fatal Error: A non-empty Update file exists. Cannot perform commit\n");
+        sendFail(sockfd);
+        return 1;
+    }
+    if(conflictfd > 0){
+        printf("Fatal Error: A Conflict file exists. Cannot perform commit\n");
+        sendFail(sockfd);
+        return 1;
+    }
+
     //Read Manifest from the server (TURN THIS AND NEXT INTO 1 FUNCTION);
     char* serverManVer = readNClient(sockfd, readSizeClient(sockfd)); 
     //printf("ServerManVer:\n%s\n", serverManVer);
@@ -802,33 +827,6 @@ int performCommit(int sockfd, char** argv){
     free(clientMan);
     read(sockfd, commitPath, 12);   //Wait until the server is done before closing socket
     return 0;
-/*
-    char manPath[projNameLen + 12];
-    sprintf(manPath, "%s/.Manifest", projName);
-    int check = sendFile(socket, manPath);
-    if(check == 0)printf("Successfully sent current version to server\n");
-    else printf("Something went wrong with sendManifest (%d)\n", check);
-
-    char* confirm = readNClient(socket, readSizeClient(socket));
-    if(!strcmp(confirm, "Success")){
-        printf("Successful Commit!\n");
-    } else {
-        printf("Error: %s\n", confirm);
-    }
-    free(confirm);*/
-
-    /* FOR CLIENT
-
-        Copy update function basically but remove the .conflict part
-        Make sure to add check to make sure that manifest are matched
-        Create new functiosn that check through the AVL for the .commits
-        close the .commit
-        send the file to server
-        end on confirmation
-
-    */
-
-
 }
 
 int performUpgrade(int sockfd, char** argv, char* updatePath){
