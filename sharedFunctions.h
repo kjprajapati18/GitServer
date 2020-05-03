@@ -11,5 +11,7 @@ int readSizeClient(int socket);
 char* messageHandler(char* msg);
 char* stringFromFile(char*);
 int sendFile(int sockfd, char* pathName);
+int writeString(int fd, char* string);
+void sendFail(int socket);
 
 #endif

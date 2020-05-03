@@ -35,6 +35,7 @@ void performHistory(int, void*);
 void performUpdate(int, void*);
 void* performUpgradeServer(int, void*);
 void* performPushServer(int, void*);
+void* performCommit(int, void*, char*);
 //char* messageHandler(char* msg);
 //int sendFile(int sockfd, char* pathName);
 char* hash(char*);
@@ -60,6 +61,7 @@ typedef struct _node2{
 typedef struct _data{
     node* head;
     int socketfd;
+    char* clientIP;
 } data;
 
 
@@ -143,12 +145,23 @@ int main(int argc, char* argv[]){
             printf("server could not accept a client\n");
             continue;
         }
-        //printf("server accepted client\n");
 
-        //switch case on mode corresponding to the enum in client.c. make thread for each function.
+        //Get client IP
+        struct sockaddr_in* pV4Addr = (struct sockaddr_in*)&cliaddr;
+        struct in_addr ipAddr = pV4Addr->sin_addr;
+        char clientIP[INET_ADDRSTRLEN];
+        inet_ntop(AF_INET, &ipAddr, clientIP, INET_ADDRSTRLEN);
+
+        printf("Server accepted client with IP %s\n", clientIP);
+        
         //thread part  //chatting between client and server
         pthread_t thread_id;
         info->socketfd = newsockfd;
+        
+        //Handle sending in IP. This will get freed by the thread that takes it
+        info->clientIP = (char*) malloc((strlen(clientIP)+1) * sizeof(char));
+        strcpy(info->clientIP, clientIP);
+        //printf("%s\n", info->clientIP);
         if(pthread_create(&thread_id, NULL, switchCase, info) != 0){
             error("thread creation error");
         } else {
@@ -175,6 +188,7 @@ void* switchCase(void* arg){
     //RECREATE ALL PERFORM FUNCTIONS TO TAKE IN ARGS CUZ SOCKET CHANGES
     //AND WE PASS SOCKET AFTER CHECKIGN THROUGH THE SWITCH CASE
     int newsockfd = ((data*) arg)->socketfd; //PASS THIS IN
+    char* clientIP = ((data*) arg)->clientIP;
     int bytes;
     char cmd[3];
     bzero(cmd, 3);
@@ -210,8 +224,13 @@ void* switchCase(void* arg){
         case push:
             performPushServer(newsockfd, arg);
             break;
+        case commit:
+            performCommit(newsockfd, arg, clientIP);
+            break;
     }
     close(newsockfd);
+    free(clientIP);
+    printf("Disconnected from client\n");
 }
 
 void* performPushServer(int socket, void* arg){
@@ -718,37 +737,81 @@ void performUpdate(int socket, void* arg){
 
 //Writes #:Data for manifest 
 //# is the size of the Manifest while Data is the actual content
-/*int sendFile(int sockfd, char* pathName){
+//int sendFile(int sockfd, char* pathName){
 
-    int manifest = open(pathName, O_RDONLY);
-    if(manifest < 0) return 2;
-    int fileSize = (int) lseek(manifest, 0, SEEK_END);
-    lseek(manifest, 0, SEEK_SET);
+void* performCommit(int socket, void* arg, char* clientIP){
+    //WRITE BTTER BY CHECKING IF IT FAILED. MAKE SURE TO ADD FAIL CHECKS ON BOTH SIDES
+    //Try to get rid of these god damn nested ifs
+    int bytes = readSizeClient(socket);
+    char projName[bytes + 1];
+    read(socket, projName, bytes);
+    projName[bytes] = '\0';
     
-    int pathLen = strlen(pathName);
+    node* found = findNode(((data*) arg)->head, projName);
+    int check = 0;
+    if(found == NULL) {
+        printf("Could not find project with that name. Cannot find current version (%s)\n", projName);
+        char* returnMsg = messageHandler("Could not find project with that name to perform current verison");
+        int bytecheck = write(socket, returnMsg, strlen(returnMsg));
+        free(returnMsg);
+    }else{
+        pthread_mutex_lock(&(found->mutex));
+        int projNameLen = strlen(projName);
+        char manPath[projNameLen + 12];
+        sprintf(manPath, "%s/.Manifest", projName);
+        int manfd = open(manPath, O_RDONLY);
+        
+        char verNum[12];
+        int bytesRead = 0, status = 0;
+        do{
+            status = read(manfd, verNum + bytesRead, 1);
+            bytesRead += status;
+        }while(status > 0 && *(verNum + bytesRead-status) != '\n');
 
-    int sendSize = pathLen + 26 + fileSize; //26 accounts for : and digits in string and \0
-    char* fileData = (char*) malloc(sizeof(char) * (sendSize)); bzero(fileData, sendSize);
-    
-    sprintf(fileData, "%d:%s%d:", pathLen, pathName, fileSize);
+        close(manfd);
+        verNum[bytesRead-1] = '\0';
+        
+        if(status < 0 || bytesRead ==0 || *verNum == '\n'){
+            printf("Failed reading manifest\n");
+            sendFail(socket);
+            return NULL;
+        }
 
-    int status = 0, bytesRead = 0, start = strlen(fileData);
-    
-    do{
-        status = read(manifest, fileData + bytesRead+start, fileSize - bytesRead);
-        bytesRead += status;
-    }while(status > 0 && bytesRead < fileSize);
-    
-    close(manifest);
-    if(status < 0){
-        free(fileData);
-        return 1;
+        //Client doesnt need the whole manifest, only the version number
+        char* sendVerNum = messageHandler(verNum);
+        int sendVerNumLen = strlen(sendVerNum);
+        int check = write(socket, sendVerNum, sendVerNumLen);
+
+        if(check == sendVerNumLen){
+            printf("Successfully sent manifest to client\n");
+            int pathLen = readSizeClient(socket);
+            char* commitPath = readNClient(socket, pathLen);
+            if(!strcmp("fail", commitPath)){
+                printf("Client could not complete commit request. Terminating...\n");
+                free(commitPath);
+                pthread_mutex_unlock(&(found->mutex));
+                return NULL;
+            }
+            char* commitData = readNClient(socket, readSizeClient(socket));
+            
+            int clientIPLen = strlen(clientIP);
+            //printf("%s\n%d\n", clientIP, clientIPLen);
+            char commitIP[pathLen + clientIPLen + 2];
+            sprintf(commitIP, "%s-%s", commitPath, clientIP);
+            remove(commitIP);
+            int commitfd = open(commitIP, O_WRONLY | O_CREAT, 00600);
+            writeString(commitfd, commitData);
+
+            free(commitPath);
+            free(commitData);
+            close(commitfd);
+            write(socket, "yerrrrrrrrrr", 12);
+        }else{
+            printf("Something went wrong with sendFile (%d)\n", check);
+        }
+        pthread_mutex_unlock(&(found->mutex));
     }
-
-    write(sockfd, fileData, start+bytesRead);    
-    free(fileData);
-    return 0;
-}*/
+}
 
 char* hash(char* path){
     unsigned char c[MD5_DIGEST_LENGTH];

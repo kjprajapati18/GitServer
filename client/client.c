@@ -49,6 +49,7 @@ int manDifferencesCDM(int, int, avlNode*, avlNode*);
 int manDifferencesA(int, int, avlNode*, avlNode*);
 int performPush(int, char**, char*);
 int performUpgrade(int, char**, char*);
+int commitManDiff(int, avlNode*, int);
 
 int main(int argc, char* argv[]){
     setbuf(stdout, NULL);
@@ -169,7 +170,6 @@ int main(int argc, char* argv[]){
         case commit: 
             printf("commit\n");
             performCommit(sockfd, argv);
-            write(sockfd, "4:Done", 6);
             break;
         case push:{ 
             int len = strlen(argv[2]);
@@ -231,6 +231,7 @@ int main(int argc, char* argv[]){
         default:
             break;
     }
+    printf("Disconnected from server\n");
     return 0;
 }
 
@@ -507,19 +508,6 @@ char* getConfigInfo(int config, int* port){
     return ipRead;
 }
 
-//Write to fd. Return 0 on success but 1 if there was a write error
-int writeString(int fd, char* string){
-
-    int status = 0, bytesWritten = 0, strLength = strlen(string);
-    
-    do{
-        status = write(fd, string + bytesWritten, strLength - bytesWritten);
-        bytesWritten += status;
-    }while(status > 0 && bytesWritten < strLength);
-    
-    if(status < 0) return 1;
-    return 0;
-}
 
 
 command argCheck(int argc, char* arg){
@@ -705,39 +693,140 @@ int performUpdate(int sockfd, char** argv){
     return 0;
 }
 
-int performCommit(int socket, char** argv){
-/*
+int performCommit(int sockfd, char** argv){
+
     int projNameLen = strlen(argv[2]);
-    char sendFile[12+projNameLen)];
-    sprintf(sendFile, "%d:%s", projNameLen, argv[2]);
-    write(sockfd, sendFile, strlen(sendFile));
-
-    char manPath[projNameLen + 12];
-    sprintf(manPath, "%s/.Manifest", projName);
-    int check = sendFile(socket, manPath);
-    if(check == 0)printf("Successfully sent current version to server\n");
-    else printf("Something went wrong with sendManifest (%d)\n", check);
-
-    char* confirm = readNClient(socket, readSizeClient(socket));
-    if(!strcmp(confirm, "Success")){
-        printf("Successful Commit!\n");
-    } else {
-        printf("Error: %s\n", confirm);
+    char projNameProto[12+projNameLen];
+    sprintf(projNameProto, "%d:%s", projNameLen, argv[2]);
+    write(sockfd, projNameProto, strlen(projNameProto));
+    
+    //Check that the project exists locally (TURN TO ONE FUNCTION)
+    char clientManPath[projNameLen+12];
+    sprintf(clientManPath, "%s/.Manifest", argv[2]);
+    int clientManfd = open(clientManPath, O_RDONLY);
+    if(clientManfd < 0){
+        printf("Fatal Error: The project does not exist locally\n");
+        sendFail(sockfd);
+        return 1;
     }
-    free(confirm);*/
 
-    /* FOR CLIENT
+    //Check to make sure that there is no conflict or update file
+    char clientUpdatePath[projNameLen+10];
+    char clientConflictPath[projNameLen+10];
+    sprintf(clientUpdatePath, "%s/.Update", argv[2]);
+    sprintf(clientConflictPath, "%s/.Conflict", argv[2]);
+    int updatefd = open(clientUpdatePath, O_RDONLY);
+    int conflictfd = open(clientConflictPath, O_RDONLY);
+    int updateSize = 0;
+    if(updatefd > 0){
+        updateSize = lseek(updatefd, 0, SEEK_END);
+    }
+    close(updatefd);
+    close(conflictfd);
 
-        Copy update function basically but remove the .conflict part
-        Make sure to add check to make sure that manifest are matched
-        Create new functiosn that check through the AVL for the .commits
-        close the .commit
-        send the file to server
-        end on confirmation
+    if(updateSize > 0){
+        printf("Fatal Error: A non-empty Update file exists. Cannot perform commit\n");
+        sendFail(sockfd);
+        return 1;
+    }
+    if(conflictfd > 0){
+        printf("Fatal Error: A Conflict file exists. Cannot perform commit\n");
+        sendFail(sockfd);
+        return 1;
+    }
 
-    */
+    //Read Manifest from the server (TURN THIS AND NEXT INTO 1 FUNCTION);
+    char* serverManVer = readNClient(sockfd, readSizeClient(sockfd)); 
+    //printf("ServerManVer:\n%s\n", serverManVer);
+    if(!strcmp("fail", serverManVer)){
+        printf("Server could not read manifest\n");
+        free(serverManVer);
+        close(clientManfd);
+        return -1;
+    }
+    
 
+    // int serverManSize = readSizeClient(sockfd);
+    // char* serverMan = readNClient(sockfd, serverManSize);
+    
+    //Read our own Manifest (<- This should be own function too but also next with above comment)
+    int clientManSize = lseek(clientManfd, 0, SEEK_END);
+    char* clientMan = (char*) malloc((clientManSize+1)*sizeof(char));
+    lseek(clientManfd, 0, SEEK_SET);
+    int bytesRead = 0, status = 0;
+    do{
+        status = read(clientManfd, clientMan+bytesRead, clientManSize-bytesRead);
+        bytesRead += status;
+    }while(status > 0);
 
+    if(status < 0){
+        printf("Fatal Error: Found local .Manifest file but could not read it\n");
+        close(clientManfd);
+        free(clientMan);
+        free(serverManVer);
+        sendFail(sockfd);
+        return 2;
+    }
+    clientMan[bytesRead] = '\0';
+    close(clientManfd);                 //We're done with the manifest files.
+
+    //Get the manifest version numbers of each
+    char *clientPtr = clientMan;
+    
+    while(*clientPtr != '\n') clientPtr++;
+    *clientPtr = '\0'; clientPtr++;
+
+    int serverManVerNum = atoi(serverManVer), clientManVerNum = atoi(clientMan);
+    if(serverManVerNum != clientManVerNum){
+        printf("Please update your project to the latest version before commit\n");
+        free(serverManVer);
+        free(clientMan);
+        sendFail(sockfd);
+        return 0;
+    }
+
+    //Commit because client might have changes
+    char commitPath[projNameLen+12];
+    sprintf(commitPath, "%s/.Commit", argv[2]);
+    remove(commitPath);
+    int commitfd = open(commitPath, O_WRONLY|O_CREAT, 00600);
+
+    //int serverFileVerNum = 0, clientFileVerNum=0;
+    avlNode *clientHead = NULL;
+
+    //Tokenize version #, filepath, and hash code. Put it into an avl tree organized by file path
+    //serverHead = fillAvl(&serverPtr);
+    
+    clientHead = fillAvl(&clientPtr);
+
+    // printAVLList(serverHead);
+    // printAVLList(clientHead);
+    //Will compare the 2 files and write to the proper string to stdout and the proper files
+    writeString(commitfd, serverManVer);
+    writeString(commitfd, "\n");
+    int commitWriteStatus = commitManDiff(commitfd, clientHead, 0);
+    close(commitfd);
+    //printf("%d\n", commitWriteStatus);
+    if(commitWriteStatus <= 0){
+        remove(commitPath);
+        sendFail(sockfd);
+        if(commitWriteStatus == 0) printf("Cannot Commit. There are no local changes!\n");
+    } else {
+        sendFile(sockfd, commitPath);
+        printf("Sucessfully sent and created .Commit files on client and server\n");
+    }
+    /*printf("Pog1\n");
+    manDifferencesCDM(updatefd, conflictfd, clientHead, serverHead);
+    printf("Pog2\n");
+    manDifferencesA(updatefd, conflictfd, clientHead, serverHead);*/
+    
+
+    //if(serverHead != NULL)freeAvl(serverHead);
+    if(clientHead != NULL)freeAvl(clientHead);
+    free(serverManVer);
+    free(clientMan);
+    read(sockfd, commitPath, 12);   //Wait until the server is done before closing socket
+    return 0;
 }
 
 int performUpgrade(int sockfd, char** argv, char* updatePath){
@@ -1089,4 +1178,49 @@ int manDifferencesA(int hostupdate, int hostconflict, avlNode* hostHead, avlNode
     int left = manDifferencesA(hostupdate, hostconflict, hostHead, senderHead->left);
     int right = manDifferencesA(hostupdate, hostconflict, hostHead, senderHead->right);
     return left + right;
+}
+
+int commitManDiff(int commitfd, avlNode* clientHead, int status){
+    
+    if(status < 0) return status;
+
+    if(clientHead == NULL) return status;
+    int verNumStrLen = strlen(clientHead->ver);
+    char last = (clientHead->ver)[verNumStrLen-1];
+    char* liveHash = hash(clientHead->path);
+
+    if(liveHash == NULL && last != 'R'){
+        printf("Error: Could not open file %s. Please use the remove command to untrack this file\n", clientHead->path);
+        free(liveHash);
+        return -1;
+    }
+
+    //Space for the written string, numbers represent each part of the string
+    //"<verNum><A/M/D> <path> <hash><newLine>"
+    //Incremented version number might need 1 extra byte. i.e. 9 -> 10
+    char write[(verNumStrLen+1) + 1 + 1+ strlen(clientHead->path) + 1 + 32 + 2];
+    int boolWrite = 0, inc = 0;
+    if(last == 'A'){
+        boolWrite = 1;
+    }else if(last == 'R'){
+        last = 'D';
+        boolWrite = 1;
+        if(liveHash != NULL) free(liveHash);
+        liveHash = (char*) malloc(33*sizeof(char));
+        strcpy(liveHash, "00000000000000000000000000000000");
+    }else if(strcmp(liveHash, clientHead->code)){
+        last = 'M';
+        boolWrite = 1; inc = 1;
+    }
+
+    if(boolWrite){
+        sprintf(write, "%d%c %s %s\n", clientHead->verNum + inc, last, clientHead->path, liveHash);
+        printf("%c %s\n", last, clientHead->path);
+        writeString(commitfd, write);
+        status++;
+    }
+    free(liveHash);
+    status = commitManDiff(commitfd, clientHead->left, status);
+    status = commitManDiff(commitfd, clientHead->right, status);
+    return status;
 }

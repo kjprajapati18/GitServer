@@ -96,3 +96,22 @@ char* stringFromFile(char* path){
     close(fd);
     return string;
 }
+//Write to fd. Return 0 on success but 1 if there was a write error
+int writeString(int fd, char* string){
+
+    int status = 0, bytesWritten = 0, strLength = strlen(string);
+    
+    do{
+        status = write(fd, string + bytesWritten, strLength - bytesWritten);
+        bytesWritten += status;
+    }while(status > 0 && bytesWritten < strLength);
+    
+    if(status < 0) return 1;
+    return 0;
+}
+
+void sendFail(int socket){
+    char* fail = messageHandler("fail");
+    write(socket, fail, 6);
+    free(fail);
+}

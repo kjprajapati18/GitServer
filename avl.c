@@ -195,10 +195,14 @@ avlNode* fillAvl(char** manifestPtr){
     return head;
 }
 
+//Do not call this function with \0 as delimiter
 void advanceToken(char** ptr, char delimiter){
-    while(*(*ptr) != delimiter) (*ptr)++;
-    *(*ptr) = '\0';
-    (*ptr)++;
+    if(*(*ptr) == '\0') return;
+    while(*(*ptr) != delimiter && *(*ptr) != '\0') (*ptr)++;
+    if(*(*ptr) != '\0'){
+        *(*ptr) = '\0';
+        (*ptr)++;
+    }
 }
 
 void printAVLList(avlNode* head){
