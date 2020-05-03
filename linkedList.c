@@ -118,8 +118,7 @@ int removeThreadNode(threadList** head, pthread_t thread){
 
     threadList *ptr = *head, *prev = NULL;
     
-    while(ptr != NULL){
-        printf("Comparison: %d\n", pthread_equal(ptr->thread, thread));
+    while(ptr != NULL && !pthread_equal(ptr->thread, thread)){
         prev = ptr;
         ptr = ptr->next;
     }

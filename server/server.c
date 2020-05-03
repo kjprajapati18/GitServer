@@ -132,19 +132,19 @@ int main(int argc, char* argv[]){
             error("thread creation error");
         } else {
             pthread_mutex_lock(&threadListLock);
-            threadHead = addThreadNode(threadHead, thread_id);
+            info->threadHead = addThreadNode(info->threadHead, thread_id);
             pthread_mutex_unlock(&threadListLock);
         }
     }
     
     //Code below prints out # of thread Nodes.
-    threadList* ptr = threadHead;
+    /*threadList* ptr = threadHead;
     int j = 0;
     for(j = 0; ptr != NULL; j++){
         printf("%d -> ", j);
         ptr = ptr->next;
     }
-    printf("NULL\n");
+    printf("NULL\n");*/
 
     //Join all the threads and frees the threadID list
     joinAll(threadHead);
