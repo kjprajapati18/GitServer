@@ -37,6 +37,7 @@ void* performUpgradeServer(int, void*);
 void* performPushServer(int, void*);
 void* performCommit(int, void*, char*);
 void* performCheckout(int, void*);
+void* performRollback(int, void*);
 //char* messageHandler(char* msg);
 //int sendFile(int sockfd, char* pathName);
 char* hash(char*);
@@ -230,11 +231,49 @@ void* switchCase(void* arg){
             break;
         case checkout:
             performCheckout(newsockfd, arg);
+        case rollback:
+            performRollback(newsockfd, arg);
             break;
     }
     close(newsockfd);
     free(clientIP);
     printf("Disconnected from client\n");
+}
+
+void*performRollback(int socket, void* arg){
+    char* projName =readNClient(socket, readSizeClient(socket));
+    if(opendir(projName) != NULL) write(socket, "Succ", 4);
+    else {
+        write(socket, "Fail", 4);
+        return;
+    }
+    char* verNumString = readNClient(socket, readSizeClient(socket));
+    char projVerPath[strlen(projName) + strlen(verNumString) + 2];
+    sprintf(projVerPath, "%s/.%d",projName, atoi(verNumString));
+    if(opendir(projVerPath) != NULL) write(socket, "Succ", 4);
+    else{
+        write(socket, "Fail", 4);
+        return;
+    }
+    char syscmd[5+strlen(projVerPath)+strlen(projName)];
+    sprintf(syscmd, "mv %s .", projVerPath);
+    if(system(syscmd) == -1){
+        write(socket, "fail", 4);
+        return;
+    }
+    sprintf(syscmd, "rm -r %s", projName);
+    if(system(syscmd) == -1){
+        write(socket, "fail", 4);
+        return;
+    }    
+    sprintf(syscmd, "mv %s %s", projVerPath, projName);
+    if(system(syscmd) == -1){
+        write(socket, "fail", 4);
+        return;
+    }
+    write(socket, "succ", 4);
+    printf("Succesful rollback\n");
+    return;
 }
 
 void* performPushServer(int socket, void* arg){
@@ -329,6 +368,9 @@ void* performPushServer(int socket, void* arg){
     writeTree(manHead, fd);
     //success message
     write(socket, "Succ", 4);
+    free(manifest);
+    freeAvl(commitHead);
+    freeAvl(manHead);
 }
 
 void* performUpgradeServer(int socket, void* arg){
