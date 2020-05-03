@@ -154,6 +154,7 @@ void* performUpgradeServer(int socket, void* arg){
     char *projName = readNClient(socket, readSizeClient(socket));
     printf("%s\n", projName);
     node* found = findNode(((data*) arg)->head, projName);
+    free(confirmation);
     //gotta do something here to inform client. give it an ok
     if(found == NULL){
         printf("Cannot find project with given name\n");
@@ -168,6 +169,25 @@ void* performUpgradeServer(int socket, void* arg){
     printf("%s\n", manifestFile);
     char* manifest = stringFromFile(manifestFile);
     printf("%s\n", manifest);
+    //check manifest vernum with client's update vernum
+    char* updateVerNum = readNClient(socket, readSizeClient(socket));
+    int k = 0; while(manifest[k] != '\n') k++;
+    manifest[k] = '\0';
+    if(strcmp(manifest, updateVerNum)){
+        printf("version numbers do not match\n");
+        write(socket, "fail", 4);
+        pthread_mutex_unlock(&(found->mutex));
+        free(manifest);
+        free(updateVerNum);
+        free(projName);
+        return;
+    }
+    else{
+        printf("Version numbers match\n");
+        manifest[k] = '\n';
+        write(socket, "Succ", 4);
+        free(updateVerNum);
+    }
     //close(manfd);
     char* manifestmsg = messageHandler(manifest);
     write(socket, manifestmsg, strlen(manifestmsg));

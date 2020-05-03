@@ -674,14 +674,29 @@ int performUpgrade(int sockfd, char** argv, char* updatePath){
         free(projName);
         return -1;
     }
-    int updatefd = open(updatePath, O_RDONLY);
-    int size = lseek(updatefd, 0, SEEK_END);
-    if(size==0){
+    /*int updatefd = open(updatePath, O_RDONLY);
+    int size = lseek(updatefd, 0, SEEK_END);*/
+    char* update = stringFromFile(updatePath);
+    if(update[0]=='\0'){
         printf("Project is up to date\n");
-        close(updatefd);
         remove(updatePath);
         return 1;
     }
+    //send version number to sever to check if update num matches manifest num
+    int k = 0; 
+    while(update[k] != '\n') k++;
+    update[k] = '\0';
+    char* verNum = messageHandler(update);
+    write(sockfd, verNum, strlen(verNum));
+    free(verNum);
+    update[k] = '\n';
+    read(sockfd, succ, 4);
+    if(!strcmp(succ, "fail")){
+        printf("version numbers did not match up. update again");
+        free(update);
+        return -1;
+    }
+    //remake manifest if accepted
     char manifestFile[(strlen(argv[2]) + 11)];
     sprintf(manifestFile, "%s/.Manifest", argv[2]);
     remove(manifestFile);
@@ -691,7 +706,7 @@ int performUpgrade(int sockfd, char** argv, char* updatePath){
     writeString(manfd, manifest);
     close(manfd);
     free(manifest);
-    lseek(updatefd, 0, SEEK_SET);
+    /*lseek(updatefd, 0, SEEK_SET);
     char update[size+1];
     int bytesRead=0, status=0;
     do{
@@ -703,12 +718,12 @@ int performUpgrade(int sockfd, char** argv, char* updatePath){
         bytesRead += status;
     }while(status != 0);
     update[size] = '\0';
-    close(updatefd);
+    close(updatefd);*/
     int i =0, j = 0;
     int numFiles = 0;
     char* addFile = (char*) malloc(1); addFile[0] = '\0';
     int track = 0;
-    for(i = 0; i < size +1; i++){
+    for(i = 0; i < strlen(update); i++){
         switch(update[i]){
             case 'A':
             case 'M':{
