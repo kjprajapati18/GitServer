@@ -48,11 +48,7 @@ void* performCreate(int socket, void* arg){
 
 void* performDestroy(int socket, void* arg){
     //fully lock this one prob
-    
-    int bytes = readSizeClient(socket);
-    char projName[bytes + 1];
-    read(socket, projName, bytes);
-    projName[bytes] = '\0';
+    char* projName = readNClient(socket, readSizeClient(socket));
     //now projName has the string name of the file to destroy
     
     pthread_mutex_lock(&headLock);
@@ -66,9 +62,6 @@ void* performDestroy(int socket, void* arg){
     }
     else{
         *(found->proj) = '\0';
-        //destroy files and send success msg
-        //printLL(((data*) arg)->head);
-        //if((((data*) arg)->head) == NULL) printf("IT'S NULL\n");
         
         pthread_mutex_lock(&(found->mutex));
         recDest(projName);
@@ -82,19 +75,18 @@ void* performDestroy(int socket, void* arg){
         free(returnMsg);
         printf("Successfully destroyed %s\n", projName);
     }
-    
     pthread_mutex_unlock(&headLock);
+    free(projName);
 }
 
 
 void* performCurVer(int socket, void* arg){
     //fully lock this one prob
-    int bytes = readSizeClient(socket);
-    char projName[bytes + 1];
-    read(socket, projName, bytes);
-    projName[bytes] = '\0';
+    node** head = &(((data*) arg)->head);
+    int projNameLen = readSizeClient(socket);
+    char* projName = readNClient(socket, projNameLen);
     
-    node* found = findNode(((data*) arg)->head, projName);
+    node* found = findNode(*head, projName);
     int check = 0;
     if(found == NULL) {
         printf("Could not find project with that name. Cannot find current version (%s)\n", projName);
@@ -103,27 +95,25 @@ void* performCurVer(int socket, void* arg){
         free(returnMsg);
     }else{
         pthread_mutex_lock(&(found->mutex));
-        int projNameLen = strlen(projName);
         char manPath[projNameLen + 12];
         sprintf(manPath, "%s/.Manifest", projName);
         check = sendFile(socket, manPath);
-        if(check == 0)printf("Successfully sent current version to client\n");
+        if(check == 0) printf("Successfully sent current version to client\n");
         else printf("Something went wrong with sendManifest (%d)\n", check);
         char* confirm = readNClient(socket, readSizeClient(socket));
         free(confirm);
         pthread_mutex_unlock(&(found->mutex));
     }
+    free(projName);
 }
 
 
 void performHistory(int socket, void* arg){
-    node* head = ((data*) arg)->head;
-    int bytes = readSizeClient(socket);
-    char projName[bytes + 1];
-    read(socket, projName, bytes);
-    projName[bytes] = '\0';
+    node** head = &(((data*) arg)->head);
+    int projNameLen = readSizeClient(socket);
+    char* projName = readNClient(socket, projNameLen);
     
-    node* found = findNode(head, projName);
+    node* found = findNode(*head, projName);
     int check = 0;
     if(found == NULL) {
         printf("Could not find project with that name. Cannot find history (%s)\n", projName);
@@ -132,7 +122,6 @@ void performHistory(int socket, void* arg){
         free(returnMsg);
     }else{
         pthread_mutex_lock(&(found->mutex));
-        int projNameLen = strlen(projName);
         char manPath[projNameLen + 12];
         sprintf(manPath, "%s/.History", projName);
         check = sendFile(socket, manPath);
@@ -143,6 +132,7 @@ void performHistory(int socket, void* arg){
         printf("Successfully sent history to client\n"); 
         pthread_mutex_unlock(&(found->mutex));
     }
+    free(projName);
 }
 
 
@@ -435,23 +425,6 @@ void* performCheckout(int socket, void* arg){
     pthread_mutex_lock(&(found->mutex));
 
     int projNameLen = strlen(projName);
-    /*
-    char manPath[projNameLen + 12];
-    sprintf(manPath, "%s/.Manifest", projName);
-    
-    //Open Manifest
-    char* manifest = stringFromFile(manPath);
-    if(manifest == NULL){
-        printf("Manifest found but unable to be read");
-        sendFail(socket);
-        return;
-    }*/
-
-/*
-    //Send all the needed files
-    char* manPtr = manifest;
-    advanceToken(&manPtr, '\n'); //Get rid of version #
-    avlNode* server = fillAvl(&manPtr); //Create an AVL tree using manifest*/
     
     int compressLength = projNameLen*4 + 75;
     char* compressCommand = (char*) malloc(compressLength *sizeof(char));
@@ -472,9 +445,8 @@ void* performCheckout(int socket, void* arg){
         bytesRead+=status;
     }while(status > 0);
     close(tarFd);
-    //char* tarData = stringFromFile(tarPath);
     remove(tarPath);
-    //sprintf(tarPath, "%s2.tar.gz", projName);
+
     int tarPathLen = strlen(tarPath);
     
     char sendBuffer[tarPathLen+tarSize+27];
@@ -482,13 +454,6 @@ void* performCheckout(int socket, void* arg){
     write(socket, sendBuffer, strlen(sendBuffer));
     write(socket, tarData, tarSize);
 
-    //int tarFileDescriptor = open(tarPath, O_CREAT | O_WRONLY, 00700);
-    //int writeCheck = writeNString(tarFileDescriptor, tarData, tarSize);
-    /*if(writeCheck < 0) printf("THERES A PROBLEM BOI\n");
-    close(tarFileDescriptor);
-    char untarCommand[strlen("tar -xzvf  -C tmp/")+strlen(tarPath)+5];
-    sprintf(untarCommand, "tar -xzvf %s -C tmp/", tarPath);
-    system(untarCommand);*/
 
     confirm = readNClient(socket, readSizeClient(socket));
     if(!strcmp(confirm, "succ")){
@@ -503,11 +468,11 @@ void* performCheckout(int socket, void* arg){
 
 
 void* performRollback(int socket, void* arg){
-    char* projName =readNClient(socket, readSizeClient(socket));
+    char* projName = readNClient(socket, readSizeClient(socket));
     node* found = findNode(((data*) arg)->head, projName);
     if(found == NULL){
         printf("Cannot find project with given name");
-        write(socket, "Fail", 4);
+        write(socket, "fail", 4);
         return;
     }
     else write(socket, "succ", 4);
@@ -516,7 +481,7 @@ void* performRollback(int socket, void* arg){
     sprintf(projVerPath, "%s/.%d",projName, atoi(verNumString));
     if(opendir(projVerPath) != NULL) write(socket, "Succ", 4);
     else{
-        write(socket, "Fail", 4);
+        write(socket, "fail", 4);
         return;
     }
     char syscmd[5+strlen(projVerPath)+strlen(projName)];
@@ -545,9 +510,7 @@ int createProject(int socket, char* name){
     printf("%s\n", name);
     char manifestPath[11+strlen(name)];
     sprintf(manifestPath, "%s/%s", name, ".Manifest");
-    /*manifestPath[0] = '\0';
-    strcpy(manifestPath, name);
-    strcat(manifestPath, "/.Manifest");*/
+    
     int manifest = open(manifestPath, O_WRONLY);    //This first open is a test to see if the project already exists
     if(manifest > 0){
         close(manifest);
@@ -557,7 +520,6 @@ int createProject(int socket, char* name){
     printf("%s\n", manifestPath);
     int folder = mkdir(name, 0777);
     if(folder < 0){
-        //I don't know what we sohuld do in this situation. For now just error
         printf("Error: Could not create project folder.. Nothing created\n");
         return -2;
     }
