@@ -51,6 +51,7 @@ int performPush(int, char**, char*);
 int performUpgrade(int, char**, char*);
 int commitManDiff(int, avlNode*, int);
 int performCheckout(int, char**);
+int performRollback(int, char**);
 
 
 int main(int argc, char* argv[]){
@@ -226,16 +227,45 @@ int main(int argc, char* argv[]){
             printf("Success! History received:\n%s", history);
             free(history);
             break;}
-        case rollback: 
-            read(sockfd, buffer, 32);
-            printf("%s\n", buffer);
-            printf("rollback\n");
-            break;
+        case rollback:{
+            int ver = atoi(argv[3]);
+            performRollback(ver, argv);
+            break;}
         default:
             break;
     }
     printf("Disconnected from server\n");
     return 0;
+}
+
+int performRollback(int ver, char** argv){
+    char* projName = messageHandler(argv[2]);
+    write(sockfd, projName, strlen(projName));
+    free(projName);
+    char succ[5]; succ[4] = '\0';
+    read(sockfd, succ, 4);
+    if(!strcmp(succ, "Fail")){
+        printf("Project not found\n");
+        return -1;
+    }
+    char* verNumString = messageHandler(argv[3]);
+    write(sockfd, verNumString, strlen(verNumString));
+    free(verNumString);
+    read(sockfd, succ, 4);
+    if(!strcmp(succ, "Fail")){
+        printf("Version number not found\n");
+        return -1;
+    }
+    read(sockfd, succ, 4);
+    if(!strcmp(succ, "fail")){
+        printf("Could not rollback to previous version\n");
+        return -1;
+    }
+    else{
+        printf("Successfully rolled back to version %d\n");
+        return 0;
+    }
+
 }
 
 
@@ -544,7 +574,11 @@ command argCheck(int argc, char* arg){
         if(argc == 3) mode = history;
         else printf("Fatal Error: history requires only 1 additional argument (project name)\n");
     }
-    else if(strcmp(arg, "rollback") == 0) mode = rollback;
+    else if(strcmp(arg, "rollback") == 0){ 
+        if(argc ==3) mode = rollback;
+        else printf("Fatal Error: rollback requires 2 arguments (projectname and version number)\n");
+    
+    }
     
     return mode;
 }
