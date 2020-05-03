@@ -12,9 +12,7 @@
 #include <pthread.h>
 #include <dirent.h>
 #include <sys/select.h>
-
 #include <openssl/md5.h>
-
 #include "../sharedFunctions.h"
 #include "../avl.h"
 
@@ -40,8 +38,8 @@ void* performPushServer(int, void*);
 void* performCommit(int, void*, char*);
 void* performCheckout(int, void*);
 //char* messageHandler(char* msg);
-char* hash(char* path);
-
+//int sendFile(int sockfd, char* pathName);
+char* hash(char*);
 int killProgram = 0;
 int sockfd;
 
@@ -248,11 +246,12 @@ void* performPushServer(int socket, void* arg){
     }
     char* projName = readNClient(socket, readSizeClient(socket));
     printf("%s\n", projName);
-    pthread_mutex_lock(&headLock);
     node* found = findNode(((data*) arg)->head, projName);
     //if found is null do something
     pthread_mutex_lock(&(found->mutex));
     char commitPath[strlen(projName) + 9];
+    char manpath[strlen(projName) + 11];
+    sprintf(manpath, "%s/.Manifest", projName);
     sprintf(commitPath, "%s/.Commit", projName);
     int commitfd = open(commitPath, O_RDONLY);
     int size = lseek(commitfd, 0, SEEK_END);
@@ -275,14 +274,61 @@ void* performPushServer(int socket, void* arg){
         printf("Commits do not match, terminating\n");
         write(socket, "Fail", 4);
         pthread_mutex_unlock(&(found->mutex));
-        pthread_mutex_unlock(&headLock);
         return;
     }
     else{
         printf("Commits match up\n");
         write(socket, "Succ", 4);
     }
-
+    //dupe directory and rename old one to version number 
+    int index = 0; 
+    while(commit[index] != '\n') index++;
+    commit[index] = '\0';
+    int verNum = atoi(commit);
+    commit[index] = '\n';
+    char syscmd[23+2*strlen(projName)];
+    sprintf(syscmd, "cp -r %s old%s", projName, projName);
+    system(syscmd);
+    sprintf(syscmd, "mv old%s %s/.%d", projName, projName, verNum); 
+    system(syscmd);
+    int numFiles = readSizeClient(socket);
+    int i = 0;
+    for(i = 0; i< numFiles; i++){
+        char* delPath = readNClient(socket, readSizeClient(socket));
+        remove(delPath);
+        free(delPath);
+    }
+    write(socket, "Succ", 4);
+    numFiles = readSizeClient(socket);
+    for(i = 0; i < numFiles; i++){
+        char* path = readNClient(socket, readSizeClient(socket));
+        remove(path);
+        int addFilefd = open(path, O_CREAT | O_WRONLY, 00600);
+        if(addFilefd < 0){
+            printf("cannot open path\n");
+            write(socket, "FAIL", 4);
+        }
+        char* fileCont = readNClient(socket, readSizeClient(socket));
+        writeString(addFilefd, fileCont);
+        free(path); free(fileCont);
+        close(addFilefd);
+    }
+    write(socket, "Succ", 4);
+    //manifest creation
+    char* manifest = stringFromFile(manpath);
+    char* manptr = manifest;
+    char* commitptr = commit;
+    avlNode* commitHead = fillAvl(&commitptr);
+    avlNode* manHead = fillAvl(&manptr);
+    manHead = commitChanges(commitHead, manHead); 
+    remove(manpath);
+    int fd = open(manpath, O_CREAT | O_WRONLY | O_APPEND, 00600);
+    char verString[13];
+    sprintf(verString, "%d\n", ++verNum);
+    writeString(fd, verString);
+    writeTree(manHead, fd);
+    //success message
+    write(socket, "Succ", 4);
 }
 
 void* performUpgradeServer(int socket, void* arg){
@@ -299,12 +345,10 @@ void* performUpgradeServer(int socket, void* arg){
     }
     char *projName = readNClient(socket, readSizeClient(socket));
     printf("%s\n", projName);
-    pthread_mutex_lock(&headLock);
     node* found = findNode(((data*) arg)->head, projName);
     //gotta do something here to inform client. give it an ok
     if(found == NULL){
         printf("Cannot find project with given name\n");
-        pthread_mutex_unlock(&headLock);
         free(projName);
         return;
     }
@@ -373,8 +417,6 @@ void* performUpgradeServer(int socket, void* arg){
     read(socket, succ, 4);
     printf("succ msg: %s\n", succ); 
     pthread_mutex_unlock(&(found->mutex));
-    pthread_mutex_unlock(&headLock);
-
 }
 
 void* performDestroy(int socket, void* arg){
@@ -447,13 +489,6 @@ int recDest(char* path){
     printf("rmDir checl: %d\n", check);
     return 0;
 }
-
-/*char* messageHandler(char* msg){
-    int size = strlen(msg);
-    char* returnMsg = (char*) malloc(12+size); bzero(returnMsg, 12+size);
-    sprintf(returnMsg, "%d:%s", size, msg);
-    return returnMsg;
-}*/
 
 
 void* performCreate(int socket, void* arg){
@@ -816,7 +851,6 @@ void* performCommit(int socket, void* arg, char* clientIP){
         pthread_mutex_unlock(&(found->mutex));
     }
 }
-
 
 char* hash(char* path){
     unsigned char c[MD5_DIGEST_LENGTH];

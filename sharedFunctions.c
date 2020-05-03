@@ -80,6 +80,7 @@ int sendFile(int sockfd, char* pathName){
     return 0;
 }
 
+
 //Write to fd. Return 0 on success but 1 if there was a write error
 int writeString(int fd, char* string){
 
@@ -98,7 +99,7 @@ void sendFail(int socket){
     write(socket, "4:fail", 6);
 }
 
-char* readFile(char* path){
+char* stringFromFile(char* path){
     int fd = open(path, O_RDONLY);
     if(fd < 0) return NULL;
 

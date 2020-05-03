@@ -35,5 +35,7 @@ int findAVLNode(avlNode**, avlNode*, char*);
 avlNode* fillAvl(char**);
 void advanceToken(char**, char);
 void printAVLList(avlNode*);
+avlNode* commitChanges(avlNode*, avlNode*);
+void writeTree(avlNode*, int);
 
 #endif

@@ -968,6 +968,7 @@ int performPush(int sockfd, char**argv, char* commitPath){
     char* delFile = (char*) malloc(1); delFile[0] = '\0';
     int addTrack = 0, delTrack = 0;
     for(i = 0; i < size+1; i++){
+        while(commit[i] >= '0' && commit[i] <= '9') i++;
         switch(commit[i]){
             case 'D':{
                 int i = i+1;
@@ -979,7 +980,7 @@ int performPush(int sockfd, char**argv, char* commitPath){
                 numDelFiles++;
                 char* fileAndSize = messageHandler(filename);
                 delTrack+= strlen(fileAndSize);
-                char* temp = (char*) malloc(delTrack+2);
+                char* temp = (char*) malloc(delTrack+1);
                 sprintf(temp, "%s%s", delFile, fileAndSize);
                 free(delFile);
                 free(fileAndSize);
@@ -996,10 +997,62 @@ int performPush(int sockfd, char**argv, char* commitPath){
                 filename[end-i] = '\0';
                 numAddFiles++;
                 char* fileAndSize = messageHandler(filename);
+                addTrack+= strlen(fileAndSize);
+                char* temp = (char*) malloc(addTrack+1);
+                sprintf(temp, "%s%s", addFile, fileAndSize);
+                free(addFile);
+                free(fileAndSize);
+                addFile = temp;
+                int fd = open(filename, O_RDONLY);
+                size = lseek(fd, 0, SEEK_END);
+                char file[size+1];
+                bytesRead = 0; status = 0;
+                do{
+                    status = read(fd, file+bytesRead, size - bytesRead);
+                    if(status < 0){
+                        close(fd);
+                        error("Fatal error: unable to read file\n");
+                    }
+                    bytesRead+= status;
+                }while(status!=0);
+                file[size] = '\0';
+                close(fd);
+                char* fileContandSize = messageHandler(file);
+                addTrack+= strlen(fileContandSize);
+                temp = (char*) malloc(addTrack +1);
+                sprintf(temp, "%s%s", addFile, fileContandSize);
+                free(addFile);
+                free(fileContandSize);
+                addFile = temp;
+                break;
             }
+            default: break;
         }
+        while(commit[i] != '\n') i++;
     }
-
+    //delfile is a list of all files to delete
+    char* temp = malloc(delTrack+2+11);
+    sprintf(temp, "%d:%s", numDelFiles, delFile);
+    free(delFile);
+    delFile = temp;
+    write(sockfd, delFile, strlen(delFile));
+    free(delFile);
+    read(sockfd, succ, 4);
+    printf("Del Succ?: %s\n", succ);
+    //addfile is a list of all files and their contents
+    char numTemp[12];
+    sprintf(numTemp, "%d", numAddFiles);
+    int numLen = strlen(numTemp);
+    temp = malloc(addTrack + numLen+2);
+    sprintf(temp, "%d:%s", numAddFiles, addFile);
+    free(addFile);
+    addFile = temp;
+    write(sockfd, addFile, addTrack+numLen+1);
+    free(addFile);
+    read(sockfd, succ, 4);
+    printf("Add Succ?: %s\n", succ);
+    read(sockfd, succ, 4);
+    printf("Final manifest success?: %s\n", succ);
 }
 
 char* hash(char* path){
