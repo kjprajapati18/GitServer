@@ -78,3 +78,21 @@ int sendFile(int sockfd, char* pathName){
     free(fileData);
     return 0;
 }
+
+char* stringFromFile(char* path){
+    int fd = open(path, O_RDONLY);
+    int size = lseek(fd, 0, SEEK_END);
+    char* string = (char*) malloc(size+1);
+    int bytesRead = 0, status = 0;
+    do{
+        status = read(fd, string+bytesRead, size-bytesRead);
+        if(status < 0){
+            close(fd);
+            error("Fatal error: unable to read file\n");
+        }
+        bytesRead+= status;
+    }while(status!= 0);
+    string[size] = '\0';
+    close(fd);
+    return string;
+}

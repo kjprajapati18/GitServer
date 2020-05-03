@@ -12,9 +12,7 @@
 #include <pthread.h>
 #include <dirent.h>
 #include <sys/select.h>
-
 #include <openssl/md5.h>
-
 #include "../sharedFunctions.h"
 #include "../avl.h"
 
@@ -38,8 +36,8 @@ void performUpdate(int, void*);
 void* performUpgradeServer(int, void*);
 void* performPushServer(int, void*);
 //char* messageHandler(char* msg);
-char* hash(char* path);
-
+//int sendFile(int sockfd, char* pathName);
+char* hash(char*);
 int killProgram = 0;
 int sockfd;
 
@@ -225,11 +223,12 @@ void* performPushServer(int socket, void* arg){
     }
     char* projName = readNClient(socket, readSizeClient(socket));
     printf("%s\n", projName);
-    pthread_mutex_lock(&headLock);
     node* found = findNode(((data*) arg)->head, projName);
     //if found is null do something
     pthread_mutex_lock(&(found->mutex));
     char commitPath[strlen(projName) + 9];
+    char manpath[strlen(projName) + 11];
+    sprintf(manpath, "%s/.Manifest", projName);
     sprintf(commitPath, "%s/.Commit", projName);
     int commitfd = open(commitPath, O_RDONLY);
     int size = lseek(commitfd, 0, SEEK_END);
@@ -252,14 +251,61 @@ void* performPushServer(int socket, void* arg){
         printf("Commits do not match, terminating\n");
         write(socket, "Fail", 4);
         pthread_mutex_unlock(&(found->mutex));
-        pthread_mutex_unlock(&headLock);
         return;
     }
     else{
         printf("Commits match up\n");
         write(socket, "Succ", 4);
     }
-
+    //dupe directory and rename old one to version number 
+    int index = 0; 
+    while(commit[index] != '\n') index++;
+    commit[index] = '\0';
+    int verNum = atoi(commit);
+    commit[index] = '\n';
+    char syscmd[23+2*strlen(projName)];
+    sprintf(syscmd, "cp -r %s old%s", projName, projName);
+    system(syscmd);
+    sprintf(syscmd, "mv old%s %s/.%d", projName, projName, verNum); 
+    system(syscmd);
+    int numFiles = readSizeClient(socket);
+    int i = 0;
+    for(i = 0; i< numFiles; i++){
+        char* delPath = readNClient(socket, readSizeClient(socket));
+        remove(delPath);
+        free(delPath);
+    }
+    write(socket, "Succ", 4);
+    numFiles = readSizeClient(socket);
+    for(i = 0; i < numFiles; i++){
+        char* path = readNClient(socket, readSizeClient(socket));
+        remove(path);
+        int addFilefd = open(path, O_CREAT | O_WRONLY, 00600);
+        if(addFilefd < 0){
+            printf("cannot open path\n");
+            write(socket, "FAIL", 4);
+        }
+        char* fileCont = readNClient(socket, readSizeClient(socket));
+        writeString(addFilefd, fileCont);
+        free(path); free(fileCont);
+        close(addFilefd);
+    }
+    write(socket, "Succ", 4);
+    //manifest creation
+    char* manifest = stringFromFile(manpath);
+    char* manptr = manifest;
+    char* commitptr = commit;
+    avlNode* commitHead = fillAvl(&commitptr);
+    avlNode* manHead = fillAvl(&manptr);
+    manHead = commitChanges(commitHead, manHead); 
+    remove(manpath);
+    int fd = open(manpath, O_CREAT | O_WRONLY | O_APPEND, 00600);
+    char verString[13];
+    sprintf(verString, "%d\n", ++verNum);
+    writeString(fd, verString);
+    writeTree(manHead, fd);
+    //success message
+    write(socket, "Succ", 4);
 }
 
 void* performUpgradeServer(int socket, void* arg){
@@ -276,12 +322,10 @@ void* performUpgradeServer(int socket, void* arg){
     }
     char *projName = readNClient(socket, readSizeClient(socket));
     printf("%s\n", projName);
-    pthread_mutex_lock(&headLock);
     node* found = findNode(((data*) arg)->head, projName);
     //gotta do something here to inform client. give it an ok
     if(found == NULL){
         printf("Cannot find project with given name\n");
-        pthread_mutex_unlock(&headLock);
         free(projName);
         return;
     }
@@ -350,8 +394,6 @@ void* performUpgradeServer(int socket, void* arg){
     read(socket, succ, 4);
     printf("succ msg: %s\n", succ); 
     pthread_mutex_unlock(&(found->mutex));
-    pthread_mutex_unlock(&headLock);
-
 }
 
 void* performDestroy(int socket, void* arg){
@@ -424,13 +466,6 @@ int recDest(char* path){
     printf("rmDir checl: %d\n", check);
     return 0;
 }
-
-/*char* messageHandler(char* msg){
-    int size = strlen(msg);
-    char* returnMsg = (char*) malloc(12+size); bzero(returnMsg, 12+size);
-    sprintf(returnMsg, "%d:%s", size, msg);
-    return returnMsg;
-}*/
 
 
 void* performCreate(int socket, void* arg){
@@ -681,139 +716,39 @@ void performUpdate(int socket, void* arg){
     return;
 }
 
+//Writes #:Data for manifest 
+//# is the size of the Manifest while Data is the actual content
+/*int sendFile(int sockfd, char* pathName){
 
-/*FOR SERVER SIDE COMMIT
+    int manifest = open(pathName, O_RDONLY);
+    if(manifest < 0) return 2;
+    int fileSize = (int) lseek(manifest, 0, SEEK_END);
+    lseek(manifest, 0, SEEK_SET);
+    
+    int pathLen = strlen(pathName);
 
-    Just send the server's .manifest
-    Wait for response from client. This will be either Fail, or a .commitfile
-    Then unlock
+    int sendSize = pathLen + 26 + fileSize; //26 accounts for : and digits in string and \0
+    char* fileData = (char*) malloc(sizeof(char) * (sendSize)); bzero(fileData, sendSize);
+    
+    sprintf(fileData, "%d:%s%d:", pathLen, pathName, fileSize);
 
-*/
-/*
-int performCommmit(int sockfd, char** argv){
-    //Check that the project exists locally (TURN TO ONE FUNCTION)
-    int nameSize = readSizeClient(socket);
-    char projName[nameSize + 1];
-    read(socket, projName, bytes);
-    projName[bytes] = '\0';
-
-    node* found = findNode(((data*) arg)->head, projName);
-    int check = 0;
-    if(found == NULL) {
-        printf("Could not find project with that name. Cannot find current version (%s)\n", projName);
-        char* returnMsg = messageHandler("Could not find project with that name to perform current verison");
-        int bytecheck = write(socket, returnMsg, strlen(returnMsg));
-        free(returnMsg);
-        return -1;
-    }
-
-    char serverManPath[nameSize+12];
-    sprintf(serverManPath, "%s/.Manifest", projName);
-    pthread_mutex_lock(&(found->mutex));
-    int serverManfd = open(serverManPath, O_RDONLY);
-    if(serverManfd < 0){
-        printf("Fatal Error: The .Manifest on the server could not be opened\n");
-        char* returnMsg = messageHandler("The .Manifest on the server could not be opened");
-        int bytecheck = write(socket, returnMsg, strlen(returnMsg));
-        free(returnMsg);
-        pthread_mutex_unlock(&(found->mutex));
+    int status = 0, bytesRead = 0, start = strlen(fileData);
+    
+    do{
+        status = read(manifest, fileData + bytesRead+start, fileSize - bytesRead);
+        bytesRead += status;
+    }while(status > 0 && bytesRead < fileSize);
+    
+    close(manifest);
+    if(status < 0){
+        free(fileData);
         return 1;
     }
 
-    //Read Manifest from the client (TURN THIS AND NEXT INTO 1 FUNCTION);
-    free(readNClient(sockfd, readSizeClient(sockfd))); //Throw away the file path
-    int clientManSize = readSizeClient(sockfd);
-    char* clientMan = readNClient(sockfd, clientManSize);
-    
-    //Read our own Manifest (<- This should be own function too but also next with above comment)
-    int serverManSize = lseek(serverManfd, 0, SEEK_END);
-    char* serverMan = (char*) malloc((serverManSize+1)*sizeof(char));
-    lseek(serverManfd, 0, SEEK_SET);
-    int bytesRead = 0, status = 0;
-    do{
-        status = read(serverManfd, serverMan+bytesRead, serverManSize-bytesRead);
-        bytesRead += status;
-    }while(status > 0);
-
-    if(status < 0){
-        printf("Fatal Error: Found the .Manifest file but could not read it\n");
-        char* returnMsg = messageHandler("Found the server .Manifest file but could not read it");
-        int bytecheck = write(socket, returnMsg, strlen(returnMsg));
-        free(returnMsg);
-        pthread_mutex_unlock(&(found->mutex));
-        return 2;
-    }
-    serverMan[bytesRead] = '\0';
-    close(serverManfd);                 //We're done with the manifest files.
-
-    //Get the manifest version numbers of each
-    char *serverPtr = serverMan, *clientPtr = clientMan;
-    
-    while(*serverPtr != '\n') serverPtr++;
-    *serverPtr = '\0'; serverPtr++;
-    while(*clientPtr != '\n') clientPtr++;
-    *clientPtr = '\0'; clientPtr++;
-
-    int serverManVerNum = atoi(serverMan), clientManVerNum = atoi(clientMan);
-    
-    if(serverManVerNum != clientManVerNum){
-        printf("Server and Client Manifest versions mismatch\n");
-        free(serverMan);
-        free(clientMan);
-        char* returnMsg = messageHandler("Server & Client versions Mismatch! Please update your project first");
-        int bytecheck = write(socket, returnMsg, strlen(returnMsg));
-        free(returnMsg);
-        pthread_mutex_unlock(&(found->mutex));
-        return 0;
-    }
-
-    char* clientIP = "local";
-    char updatePath[nameSize+strlen(clientIP)+11];
-
-    sprintf(updatePath, "%s/.Commit-%s", projName, clientIP);
-    remove(updatePath);
-    int updatefd = open(updatePath, O_WRONLY | O_CREAT, 00600);
-    if(updatefd < 0){
-        free(serverMan);
-        free(clientMan);
-        close(updatefd);
-        printf("Error: Could not create a .Commit file\n");
-        char* returnMsg = messageHandler("Could not create .Commit file on server");
-        int bytecheck = write(socket, returnMsg, strlen(returnMsg));
-        free(returnMsg);
-        pthread_mutex_unlock(&(found->mutex));
-        return -1;
-    }
-
-    char updateVersion[12];
-    sprintf(updateVersion, "%s\n", serverMan);
-    writeString(updatefd, updateVersion);
-
-    //int serverFileVerNum = 0, clientFileVerNum=0;
-    avlNode *serverHead = NULL, *clientHead = NULL;
-
-    //Tokenize version #, filepath, and hash code. Put it into an avl tree organized by file path
-    serverHead = fillAvl(&serverPtr);
-    clientHead = fillAvl(&clientPtr);
-
-    // printAVLList(serverHead);
-    // printAVLList(clientHead);
-    //Will compare the 2 files and write to the proper string to stdout and the proper files
-    manDifferencesCDM(updatefd, updatefd, serverHead, clientHead, 'A');
-    manDifferencesA(updatefd, updatefd, serverHead, clientHead);
-    
-    //Check every entry in client Manifest to server manifest
-    
-    if(serverHead != NULL)freeAvl(serverHead);
-    if(clientHead != NULL)freeAvl(clientHead);
-    free(serverMan);
-    free(clientMan);
-    close(updatefd);
-
-    
+    write(sockfd, fileData, start+bytesRead);    
+    free(fileData);
     return 0;
 }*/
-
 
 char* hash(char* path){
     unsigned char c[MD5_DIGEST_LENGTH];

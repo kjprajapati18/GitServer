@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "avl.h"
+#include "sharedFunctions.h"
 #define COUNT 10
 
 //helper method to find max of 2 numbers. returns 2nd number if equal
@@ -208,4 +209,46 @@ void printAVLList(avlNode* head){
     printAVLList(head->left);
     printAVLList(head->right);
 
+}
+
+avlNode* commitChanges(avlNode* commitHead, avlNode* manhead){
+    if(commitHead == NULL) return manhead;
+    manhead = commitChanges(commitHead->left, manhead);
+    switch((commitHead->ver)[strlen(commitHead->ver) - 1]){
+        case 'D':{
+            avlNode* found;
+            findAVLNode(&found, manhead, commitHead->path);
+            found->verNum = -1;
+            break;}
+        case 'M':{
+            avlNode* found;
+            findAVLNode(&found, manhead, commitHead->path);
+            (found->verNum)++;
+            free(found->ver);
+            char* verstring = (char*) malloc(12);
+            sprintf(verstring, "%d", found->verNum);
+            found->ver = verstring;
+            char* code = commitHead->code;
+            break;}
+        case 'A':
+            manhead = insert(manhead, "0", commitHead->path, commitHead->code);
+            break;
+    }
+    manhead = commitChanges(commitHead->right, manhead);
+    return manhead;
+
+}
+
+void writeTree(avlNode* head, int fd){
+    if(head == NULL) return;
+    writeTree(head->left, fd);
+    if(head->verNum != -1){
+        writeString(fd, head->ver);
+        writeString(fd, " ");
+        writeString(fd, head->path);
+        writeString(fd, " ");
+        writeString(fd, head->code);
+        writeString(fd, "\n");
+    }
+    writeTree(head->right, fd);
 }
