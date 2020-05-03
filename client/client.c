@@ -161,6 +161,7 @@ int main(int argc, char* argv[]){
             write(sockfd, projName, strlen(projName));
             char succ[5]; succ[4] = '\0';
             read(sockfd, succ, 4);
+            printf("Succ: %s\n", succ);
             if(!strcmp(succ, "fail")){
                 printf("Project does not exist.\n");
                 return -1;
