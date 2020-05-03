@@ -250,25 +250,21 @@ void* performPushServer(int socket, void* arg){
     printf("%s\n", projName);
     node* found = findNode(((data*) arg)->head, projName);
     //if found is null do something
+    if(found == NULL){
+        free(projName);
+        free(confirmation);
+        printf("Project does not exist\n");
+        write(socket, "fail", 4);
+        return;
+    }
     pthread_mutex_lock(&(found->mutex));
     char commitPath[strlen(projName) + 9];
     char manpath[strlen(projName) + 11];
+    char hispath[strlen(projName) + 10];
+    sprintf(hispath, "%s/.History", projName);
     sprintf(manpath, "%s/.Manifest", projName);
     sprintf(commitPath, "%s/.Commit", projName);
-    int commitfd = open(commitPath, O_RDONLY);
-    int size = lseek(commitfd, 0, SEEK_END);
-    char commit[size+1];
-    int bytesRead = 0, status = 0;
-    do{
-        status = read(commitfd, commit+bytesRead, size-bytesRead);
-        if(status < 0){
-            close(commitfd);
-            error("Fatal error: unable to read .Commit\n");
-        }
-        bytesRead+= status;
-    }while(status!=0);
-    commit[size] = '\0';
-    close(commitfd);
+    char* commit = stringFromFile(commitPath);
     char* servercommithash = hash(commit);
     char* clientcommit = readNClient(socket, readSizeClient(socket));
     char* clientcommithash = hash(clientcommit);
@@ -276,12 +272,18 @@ void* performPushServer(int socket, void* arg){
         printf("Commits do not match, terminating\n");
         write(socket, "Fail", 4);
         pthread_mutex_unlock(&(found->mutex));
+        free(commit);
         return;
     }
     else{
         printf("Commits match up\n");
         write(socket, "Succ", 4);
     }
+    //write the commit to .history
+    int histfd = open(hispath, O_CREAT| O_WRONLY|O_APPEND, 00600);
+    writeString(histfd, commit);
+    writeString(histfd, "\n");
+    close(histfd);
     //dupe directory and rename old one to version number 
     int index = 0; 
     while(commit[index] != '\n') index++;
@@ -309,6 +311,9 @@ void* performPushServer(int socket, void* arg){
         if(addFilefd < 0){
             printf("cannot open path\n");
             write(socket, "FAIL", 4);
+            free(path);
+            close(addFilefd);
+            return;
         }
         char* fileCont = readNClient(socket, readSizeClient(socket));
         writeString(addFilefd, fileCont);
@@ -331,6 +336,7 @@ void* performPushServer(int socket, void* arg){
     writeTree(manHead, fd);
     //success message
     write(socket, "Succ", 4);
+    free(commit);
     free(manifest);
     freeAvl(commitHead);
     freeAvl(manHead);

@@ -167,6 +167,12 @@ int main(int argc, char* argv[]){
             write(sockfd, "4:Succ", 6);
             char* projName = messageHandler(argv[2]);
             write(sockfd, projName, strlen(projName));
+            char succ[5]; succ[4] = '\0';
+            read(sockfd, succ, 4);
+            if(!strcmp(succ, "fail")){
+                printf("Project does not exist.\n");
+                return -1;
+            }
             performPush(sockfd, argv, dotfilepath);
             break;}
         case create:{
@@ -217,35 +223,4 @@ int main(int argc, char* argv[]){
     printf("Disconnected from server\n");
     return 0;
 }
-
-/*
-char* hash(char* path){
-    unsigned char c[MD5_DIGEST_LENGTH];
-    int fd = open(path, O_RDONLY);
-    MD5_CTX mdContext;
-    int bytes;
-    unsigned char buffer[256];
-    if(fd < 0){
-        //printf("cannot open file");
-        return NULL;
-    }
-    MD5_Init(&mdContext);
-    do{
-        bzero(buffer, 256);
-        bytes = read(fd, buffer, 256);
-        MD5_Update (&mdContext, buffer, bytes);
-    }while(bytes > 0);
-    MD5_Final(c, &mdContext);
-    close(fd);
-    int i;
-    char* hash = (char*) malloc(33); bzero(hash, 33);
-    char buf[3];
-    for(i = 0; i < MD5_DIGEST_LENGTH; i++) {
-        sprintf(buf, "%02x", c[i]);
-        strcat(hash, buf);
-    }
-    return hash;
-
-}
-*/
 
