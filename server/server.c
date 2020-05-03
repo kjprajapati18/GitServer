@@ -32,7 +32,7 @@ void* switchCase(void* arg);    //Thread creation and operation handler
 void interruptHandler(int sig);
 
 int killProgram = 0;
-int sockfd;
+int sockfd; int ret;
 pthread_mutex_t threadListLock; 
 
 
@@ -49,7 +49,6 @@ int main(int argc, char* argv[]){
     int bytes;
     char buffer[256];
     node* head = NULL;
-    threadList* threadHead = NULL;
     struct sockaddr_in servaddr;
     struct sockaddr_in cliaddr;
 
@@ -98,7 +97,7 @@ int main(int argc, char* argv[]){
     clilen = sizeof(cliaddr);
     data* info = (data*) malloc(sizeof(data));
     info->head = head;
-    info->threadHead = threadHead;
+    info->threadHead = NULL;
     while(1){
         //accept packets from clients
         
@@ -147,7 +146,7 @@ int main(int argc, char* argv[]){
     printf("NULL\n");*/
 
     //Join all the threads and frees the threadID list
-    joinAll(threadHead);
+    joinAll(info->threadHead);
     //Free list of mutexes!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     pthread_mutex_destroy(&headLock);
     pthread_mutex_destroy(&threadListLock);
@@ -166,6 +165,7 @@ void* switchCase(void* arg){
     data* info = (data*) arg;
     int newsockfd = info->socketfd; //PASS THIS IN
     char* clientIP = info->clientIP;
+    sleep(3);
     int bytes;
     char cmd[3];
     bzero(cmd, 3);
@@ -218,6 +218,7 @@ void* switchCase(void* arg){
         pthread_mutex_lock(&threadListLock);
         removeThreadNode(&(info->threadHead), pthread_self());
         pthread_mutex_unlock(&threadListLock);
+        pthread_detach(pthread_self());
     }
     printf("Disconnected from client\n");
 }

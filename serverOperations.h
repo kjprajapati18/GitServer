@@ -14,7 +14,6 @@ void* performRollback(int, void*);
 
 int createProject(int, char*);
 int recDest(char*);
-//char* hash(char*);
 
 pthread_mutex_t headLock;
 
