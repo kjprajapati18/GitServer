@@ -325,6 +325,9 @@ void* performPushServer(int socket, void* arg){
     writeTree(manHead, fd);
     //success message
     write(socket, "Succ", 4);
+    free(manifest);
+    freeAvl(commitHead);
+    freeAvl(manHead);
 }
 
 void* performUpgradeServer(int socket, void* arg){
