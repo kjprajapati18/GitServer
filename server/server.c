@@ -967,7 +967,7 @@ char* hash(char* path){
     MD5_Final(c, &mdContext);
     close(fd);
     int i;
-    char* hash = (char*) malloc(32); bzero(hash, 32);
+    char* hash = (char*) malloc(33); bzero(hash, 33);
     char buf[3];
     for(i = 0; i < MD5_DIGEST_LENGTH; i++) {
         sprintf(buf, "%02x", c[i]);

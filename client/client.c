@@ -1108,7 +1108,7 @@ char* hash(char* path){
     MD5_Final(c, &mdContext);
     close(fd);
     int i;
-    char* hash = (char*) malloc(32); bzero(hash, 32);
+    char* hash = (char*) malloc(33); bzero(hash, 33);
     char buf[3];
     for(i = 0; i < MD5_DIGEST_LENGTH; i++) {
         sprintf(buf, "%02x", c[i]);
@@ -1315,7 +1315,7 @@ int performCheckout(int sockfd, char** argv){
     char tarCommand[12+tarFilePathLen];
     sprintf(tarCommand, "tar -xzvf %s", tarFilePath);
     system(tarCommand);
-    //remove(tarFilePath);
+    remove(tarFilePath);
 
 /*
     //If the previous line was not a fail, then it was the file path. Grab the actual data
