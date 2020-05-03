@@ -17,4 +17,7 @@ void sendFail(int socket);
 char* stringFromFile(char* path);
 char* hash(char*);
 
+int sendTarFile(int socket, char* tarPath);
+char* readWriteTarFile(int sockfd);
+
 #endif

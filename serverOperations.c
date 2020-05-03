@@ -427,7 +427,11 @@ void* performCheckout(int socket, void* arg){
 
     char tarPath[projNameLen+9];
     sprintf(tarPath, "%s.tar.gz", projName);
+    
+    check = sendTarFile(socket, tarPath);
+    remove(tarPath);
 
+/*  
     int tarFd = open(tarPath, O_RDONLY);
     int bytesRead = 0, status = 0;
     int tarSize = lseek(tarFd, 0, SEEK_END);
@@ -446,7 +450,7 @@ void* performCheckout(int socket, void* arg){
     sprintf(sendBuffer, "%d:%s%d:", tarPathLen, tarPath, tarSize);
     write(socket, sendBuffer, strlen(sendBuffer));
     write(socket, tarData, tarSize);
-
+*/
 
     confirm = readNClient(socket, readSizeClient(socket));
     if(!strcmp(confirm, "succ")){
@@ -456,7 +460,6 @@ void* performCheckout(int socket, void* arg){
     }
     free(confirm);
     free(projName);
-    free(tarData);
     pthread_mutex_unlock(&(found->mutex));
     return;
 }
@@ -527,10 +530,23 @@ int createProject(int socket, char* name){
         printf("Error: Could not create .Manifest file. Nothing created\n");
         return -2;
     }
-    write(manifest, "0\n", 2);
+    writeString(manifest, "0\n");
     printf("Succesful server-side project creation. Notifying Client\n");
+
+    //Write the history
+    char historyPath[11+strlen(name)];
+    sprintf(historyPath, "%s/%s", name, ".History");
+    int history = open(historyPath, O_CREAT| O_WRONLY, 00600);
+    if(history < 0){
+        printf("Error: History file could not be created. Nothing changed\n");
+        remove(manifestPath);
+        rmdir(name); //We don't care if this fails because that just means the directory already existed beforehand
+        return -1;
+    }
+    writeString(history, "0\n\n");
     write(socket, "succ:", 5);
     close(manifest);
+    close(history);
     return 0;
 }
 

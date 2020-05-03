@@ -162,3 +162,66 @@ char* hash(char* path){
     return hash;
 
 }
+
+
+//Separate function for tarFile since treating it like a string causes undefined behavior
+//Sends in form <pathLen>:<path><dataLen>:<data>
+int sendTarFile(int socket, char* tarPath){
+    int tarFd = open(tarPath, O_RDONLY);
+    if(tarFd < 0){
+        printf("Could not open tar file for sending\n");
+        return -1;
+    }
+    int bytesRead = 0, status = 0;
+    int tarSize = lseek(tarFd, 0, SEEK_END);
+    lseek(tarFd, 0, SEEK_SET);
+    char* tarData = (char*) malloc(tarSize +1);
+    do{
+        status = read(tarFd, tarData + bytesRead, tarSize - bytesRead);
+        bytesRead+=status;
+    }while(status > 0);
+    close(tarFd);
+    if(status <0){
+        printf("Could open tar but could not read for sending\n");
+        free(tarData);
+        return -1;
+    }
+    //remove(tarPath);
+
+    int tarPathLen = strlen(tarPath);
+    
+    char sendBuffer[tarPathLen+tarSize+27];
+    sprintf(sendBuffer, "%d:%s%d:", tarPathLen, tarPath, tarSize);
+    write(socket, sendBuffer, strlen(sendBuffer));
+    write(socket, tarData, tarSize);
+    free(tarData);
+}
+
+char* readWriteTarFile(int sockfd){
+
+    int tarFilePathLen = readSizeClient(sockfd);
+    char* tarFilePath = readNClient(sockfd, tarFilePathLen);
+    int tarFileDataLen = readSizeClient(sockfd);
+    char* tarFile = (char*) malloc(sizeof(char) * tarFileDataLen); 
+    int checkTar = read(sockfd, tarFile, tarFileDataLen);
+
+    if(checkTar < 0){
+        printf("Could not read tar file from server\n");
+        free(tarFilePath); free(tarFile);
+        return NULL;
+    }
+
+    int tarFd = open(tarFilePath, O_WRONLY | O_CREAT, 00700);
+    if(tarFd < 0){
+        printf("Could read tar but could not create tar file\n");
+        free(tarFilePath); free(tarFile);
+        //sendFail(sockfd);*/
+        return NULL;
+    }
+
+    writeNString(tarFd, tarFile, tarFileDataLen);
+    close(tarFd);
+    free(tarFile);
+
+    return tarFilePath;
+}
