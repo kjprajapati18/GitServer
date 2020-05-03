@@ -1155,19 +1155,20 @@ int commitManDiff(int commitfd, avlNode* clientHead, int status){
         last = 'D';
         boolWrite = 1;
         if(liveHash != NULL) free(liveHash);
-        liveHash = NULL;
+        liveHash = (char*) malloc(33*sizeof(char));
+        strcpy(liveHash, "00000000000000000000000000000000");
     }else if(strcmp(liveHash, clientHead->code)){
         last = 'M';
         boolWrite = 1; inc = 1;
     }
 
     if(boolWrite){
-        sprintf(write, "%d%c %s %s\n", clientHead->verNum + inc, last, clientHead->path, clientHead->code);
+        sprintf(write, "%d%c %s %s\n", clientHead->verNum + inc, last, clientHead->path, liveHash);
         printf("%c %s\n", last, clientHead->path);
         writeString(commitfd, write);
         status++;
     }
-
+    free(liveHash);
     status = commitManDiff(commitfd, clientHead->left, status);
     status = commitManDiff(commitfd, clientHead->right, status);
     return status;
