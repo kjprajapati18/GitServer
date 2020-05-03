@@ -28,14 +28,14 @@
     --Do stuff mentioned in client todo list
 */
 
-void* switchCase(void* arg);
+void* switchCase(void* arg);    //Thread creation and operation handler
+void interruptHandler(int sig);
+
 int killProgram = 0;
 int sockfd;
+pthread_mutex_t threadListLock; 
 
-void interruptHandler(int sig){
-    killProgram = 1;
-    close(sockfd);
-}
+
 
 int main(int argc, char* argv[]){
 
@@ -54,6 +54,7 @@ int main(int argc, char* argv[]){
     struct sockaddr_in cliaddr;
 
     pthread_mutex_init(&headLock, NULL);
+    pthread_mutex_init(&threadListLock, NULL);
     //destroy atexit()?
 
     //socket creation
@@ -97,6 +98,7 @@ int main(int argc, char* argv[]){
     clilen = sizeof(cliaddr);
     data* info = (data*) malloc(sizeof(data));
     info->head = head;
+    info->threadHead = threadHead;
     while(1){
         //accept packets from clients
         
@@ -129,22 +131,29 @@ int main(int argc, char* argv[]){
         if(pthread_create(&thread_id, NULL, switchCase, info) != 0){
             error("thread creation error");
         } else {
+            pthread_mutex_lock(&threadListLock);
             threadHead = addThreadNode(threadHead, thread_id);
+            pthread_mutex_unlock(&threadListLock);
         }
     }
     
     //Code below prints out # of thread Nodes.
-    /*threadList* ptr = threadHead;
+    threadList* ptr = threadHead;
     int j = 0;
     for(j = 0; ptr != NULL; j++){
         printf("%d -> ", j);
         ptr = ptr->next;
-    }*/
+    }
+    printf("NULL\n");
 
-    //Join all the threads and clean up
+    //Join all the threads and frees the threadID list
     joinAll(threadHead);
+    //Free list of mutexes!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    pthread_mutex_destroy(&headLock);
+    pthread_mutex_destroy(&threadListLock);
+    freeMutexList(info->head);
+    
     free(info);
-    //Free the list of thread_id's and the list of mutexes!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     printf("Successfully closed all sockets and threads!\n");
     
     //socket is already closed from sig handler
@@ -154,8 +163,9 @@ int main(int argc, char* argv[]){
 void* switchCase(void* arg){
     //RECREATE ALL PERFORM FUNCTIONS TO TAKE IN ARGS CUZ SOCKET CHANGES
     //AND WE PASS SOCKET AFTER CHECKIGN THROUGH THE SWITCH CASE
-    int newsockfd = ((data*) arg)->socketfd; //PASS THIS IN
-    char* clientIP = ((data*) arg)->clientIP;
+    data* info = (data*) arg;
+    int newsockfd = info->socketfd; //PASS THIS IN
+    char* clientIP = info->clientIP;
     int bytes;
     char cmd[3];
     bzero(cmd, 3);
@@ -172,11 +182,11 @@ void* switchCase(void* arg){
     switch(mode){
         case create:
             performCreate(newsockfd, arg);
-            printLL(((data*)arg)->head);
+            printLL(info->head);
             break;
         case destroy:
             performDestroy(newsockfd, arg);
-            printLL(((data*)arg)->head);
+            printLL(info->head);
             break;
         case currentversion:
         case update:
@@ -203,35 +213,16 @@ void* switchCase(void* arg){
     }
     close(newsockfd);
     free(clientIP);
+    //If the server is shutting down, don't perform these lines because we have to join the threads
+    if(!killProgram){
+        pthread_mutex_lock(&threadListLock);
+        removeThreadNode(&(info->threadHead), pthread_self());
+        pthread_mutex_unlock(&threadListLock);
+    }
     printf("Disconnected from client\n");
 }
 
-
-char* hash(char* path){
-    unsigned char c[MD5_DIGEST_LENGTH];
-    int fd = open(path, O_RDONLY);
-    MD5_CTX mdContext;
-    int bytes;
-    unsigned char buffer[256];
-    if(fd < 0){
-        //printf("cannot open file");
-        return NULL;
-    }
-    MD5_Init(&mdContext);
-    do{
-        bzero(buffer, 256);
-        bytes = read(fd, buffer, 256);
-        MD5_Update (&mdContext, buffer, bytes);
-    }while(bytes > 0);
-    MD5_Final(c, &mdContext);
-    close(fd);
-    int i;
-    char* hash = (char*) malloc(33); bzero(hash, 33);
-    char buf[3];
-    for(i = 0; i < MD5_DIGEST_LENGTH; i++) {
-        sprintf(buf, "%02x", c[i]);
-        strcat(hash, buf);
-    }
-    return hash;
-
+void interruptHandler(int sig){
+    killProgram = 1;
+    close(sockfd);
 }

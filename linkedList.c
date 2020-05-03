@@ -96,15 +96,6 @@ node* fillLL(node* head){
     return head;
 }
 
-void printLL(node* head){
-    node* ptr = head;
-    while(ptr!=NULL){
-        printf("%s -> ", ptr->proj);
-        ptr= ptr->next;
-    }
-    printf("NULL\n");
-}
-
 threadList* addThreadNode(threadList* head, pthread_t thread){
     threadList* newNode = malloc(sizeof(threadList));
     newNode->thread = thread;
@@ -123,11 +114,56 @@ threadList* addThreadNode(threadList* head, pthread_t thread){
     return head;
 }
 
+int removeThreadNode(threadList** head, pthread_t thread){
+
+    threadList *ptr = *head, *prev = NULL;
+    
+    while(ptr != NULL){
+        printf("Comparison: %d\n", pthread_equal(ptr->thread, thread));
+        prev = ptr;
+        ptr = ptr->next;
+    }
+    if(ptr == NULL){
+        printf("Could not find thread in the threadList\n");
+        return -1;
+    }
+
+    if(prev != NULL){
+        prev->next = ptr->next;
+    } else {
+        *head = ptr->next;
+    }
+    free(ptr);
+    return 0;
+
+}
+
+
+void printLL(node* head){
+    node* ptr = head;
+    while(ptr!=NULL){
+        printf("%s -> ", ptr->proj);
+        ptr= ptr->next;
+    }
+    printf("NULL\n");
+}
+
+
 void joinAll(threadList* head){
     
     while(head != NULL){
         threadList* temp = head->next;
         pthread_join(head->thread, NULL);
+        free(head);
+        head = temp;
+    }
+}
+
+void freeMutexList(node* head){
+    while(head != NULL){
+        node* temp = head->next;
+        free(head->proj);
+        pthread_mutex_destroy(&(head->mutex));
         free(head);
         head = temp;
     }

@@ -15,5 +15,6 @@ int writeString(int fd, char* string);
 int writeNString(int fd, char* string, int len);
 void sendFail(int socket);
 char* stringFromFile(char* path);
+char* hash(char*);
 
 #endif

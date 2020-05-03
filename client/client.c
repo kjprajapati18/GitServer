@@ -39,7 +39,7 @@ void writeConfigureFile(char* IP, char* port);
 void sendServerCommand(int socket, char* command, int comLen);
 char* getConfigInfo(int config, int* port);
 int writeString(int fd, char* string);
-char* hash(char* path);
+//char* hash(char* path);
 int performCreate(int socket, char** argv);
 void printCurVer(char* manifest);
 int performUpdate(int sockfd, char** argv);
@@ -1088,7 +1088,7 @@ int performPush(int sockfd, char**argv, char* commitPath){
     read(sockfd, succ, 4);
     printf("Final manifest success?: %s\n", succ);
 }
-
+/*
 char* hash(char* path){
     unsigned char c[MD5_DIGEST_LENGTH];
     int fd = open(path, O_RDONLY);
@@ -1116,7 +1116,7 @@ char* hash(char* path){
     }
     return hash;
 
-}
+}*/
 
 void printCurVer(char* manifest){
     int skip = 1;
