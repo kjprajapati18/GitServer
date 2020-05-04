@@ -58,3 +58,9 @@
 2M ./testProject/bigBoi.txt a5632d7ae329dd3543b4e297e5a1a7d1
 1M ./testProject/biggerBoi/thing.txt 00d7fc1be27c6b69eedd076b720e5737
 
+4
+2M ./testProject/bigBoi.txt a5632d7ae329dd3543b4e297e5a1a7d1
+0A ./testProject/added.txt b60ed88355ac3f6898fd8a7ab1734d06
+0D ./testProject/bigger.txt 00000000000000000000000000000000
+1M ./testProject/biggerBoi/thing.txt 00d7fc1be27c6b69eedd076b720e5737
+
