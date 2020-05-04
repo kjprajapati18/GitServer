@@ -218,26 +218,28 @@ void printAVLList(avlNode* head){
 
 }
 
+//applies changes in commit file avl to manifest file avl so that writeTree() will write the correct strings to the file
 avlNode* commitChanges(avlNode* commitHead, avlNode* manhead){
+    //in order traversal of the commit file AVL
     if(commitHead == NULL) return manhead;
     manhead = commitChanges(commitHead->left, manhead);
+    //switch case on the nature of the commit
     switch((commitHead->ver)[strlen(commitHead->ver) - 1]){
         case 'D':{
+            //change version number to -1 so we know to skip it in writeTree(), essentially deleting it from the manifest
             avlNode* found;
             findAVLNode(&found, manhead, commitHead->path);
             found->verNum = -1;
             break;}
         case 'M':{
+            //increment version number in the manifest and change the hash code
             avlNode* found;
             findAVLNode(&found, manhead, commitHead->path);
             (found->verNum)++;
-            //free(found->ver);
-            // char* verstring = (char*) malloc(12);
-            // sprintf(verstring, "%d", found->verNum);
-            // found->ver = verstring;
             found->code = commitHead->code;
             break;}
         case 'A':{
+            //change version number to -2 so we know it was recently added in writeTree(), allowing us to write a version number of 0 in the manifest separate from branches untouched in the manifest avl with that version number
             char* zero = (char*) malloc(3);
             sprintf(zero, "-2");
             manhead = insert(manhead, zero, commitHead->path, commitHead->code);
@@ -247,14 +249,17 @@ avlNode* commitChanges(avlNode* commitHead, avlNode* manhead){
     return manhead;
 
 }
-
+//writes the avl information to a file descriptor
 void writeTree(avlNode* head, int fd){
+    //in order tree traversal
     if(head == NULL) return;
     writeTree(head->left, fd);
+    //as long as the version number is not -1 (i.e. we deleted it) we write the node to a the file
     if(head->verNum != -1){
         char* verstring = (char*) malloc(12);
-        if(head->verNum == -2) sprintf(verstring, "%d", 0);
-        else sprintf(verstring, "%d", head->verNum);
+        if(head->verNum == -2) sprintf(verstring, "%d", 0); //write 0 as the file's version number for files we specified as -2 in commitChanges()
+        else sprintf(verstring, "%d", head->verNum); //take the file version number string as what's given if it's not -2
+        //write the information in the manifest's format
         writeString(fd, verstring);
         writeString(fd, " ");
         writeString(fd, head->path);
