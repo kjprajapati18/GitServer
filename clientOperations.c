@@ -48,8 +48,9 @@ int performRollback(int ver, char** argv, int sockfd){
 }
 
 int performAdd(char** argv){
+    //open the directory to see if it exists locally
     DIR* d = opendir(argv[2]);
-    
+    //if it doesn't exist, return and print to client the error.
     if(!d){
         printf("Project does not exist locally. Cannot execute command.\n");
         return -1;
@@ -61,12 +62,11 @@ int performAdd(char** argv){
     sprintf(manPath, "%s/%s", argv[2], ".Manifest");
     int len2 = strlen(argv[3]);
     
-    printf("Path: %s\n\n", manPath);
     int len3 = len1+5+len2;
     char* writefile = (char*) malloc(len3); 
     sprintf(writefile, "./%s/%s ", argv[2], argv[3]);
 
-    //Check if we can open/has the file
+    //Check if we can open the file that we want to add and if we can hash it
     writefile[len3-2] = '\0';
     printf("Size: %d, writeFile: %s", len3-1, writefile);
     char* hashcode = hash(writefile);
@@ -77,42 +77,25 @@ int performAdd(char** argv){
         return -1;
     }
     writefile[len3-2] = ' ';
-
-    //check if if file already exists in manifest:
-    /*int manfd = open(manPath, O_RDONLY);
-    int size = (int) lseek(manfd, 0, SEEK_END);
-    printf("Size: %d\nFD: %d\n", size, manfd);
-    lseek(manfd, 0, SEEK_SET);
-    char manifest[size+1];
-    int bytesRead=0, status=0;
-    do{
-        status = read(manfd, manifest + bytesRead, size-bytesRead);
-        if(status < 0){
-            close(manfd);
-            error("Fatal Error: Unable to read .Manifest file\n");
-        }
-        bytesRead += status;
-    }while(status != 0);*/
+    //save the manifest file as a string
     char* manifest = stringFromFile(manPath);
     int size = strlen(manifest);
-    printf("%s", manifest);
     char* filename = (char*) malloc(len3);
     int i = 0;
+    //loop through the manifest string
     for(i = 0; i <= size; i++){
         if(manifest[i] == '.'){
+            //if we run into a filename , compare it to the filename we were told to add
             strncpy(filename, &manifest[i], len3);
             filename[len3-1] = '\0';
-            printf("%s\n", filename);
-            printf("%s\n", writefile);
             if(!strcmp(filename, writefile)){
                 //two cases: R already and can be added or would be adding duplicate
-                //Removed alraedy
+                //Removed already so add it without the local change
                 if(manifest[i - 2] == 'R'){
                     printf("Previously removed and to be added now.\n");
                     char newmani[size-1]; bzero(newmani, size-1);
                     strncpy(newmani, manifest, i-2);
                     strcat(newmani, &manifest[i-1]);
-                    printf("newmani: %s\n", newmani);
                     remove(manPath);
                     int newfd = open(manPath, O_CREAT | O_WRONLY, 00600);
                     writeString(newfd, newmani);
@@ -120,7 +103,7 @@ int performAdd(char** argv){
                     free(manPath);
                     free(writefile);
                     close(newfd);
-                    printf("added file to manifest after removing it");
+                    printf("Added file to manifest after removing it");
                     return 0;
                 }
                 //found file so cannot add duplicate
@@ -133,17 +116,15 @@ int performAdd(char** argv){
             else while(manifest[i] != '\n' && manifest[i] != '\0') i++;
         }
     }
-    //add it
-    printf("%s\n", writefile);
-    printf("%d\n", strlen(writefile));
+    //add file to the manifest
     int manfd = open(manPath, O_WRONLY | O_APPEND);
-    //lseek(manfd, 0, SEEK_END);
     if(manfd < 0) error("Could not open manifest");
-    //sprintf(writefile, "./%s/%s ", argv[1], argv[2]);
+    //append an A after version number to indicate addition locally
     writeString(manfd, "0A ");
     writeString(manfd, writefile);
     writeString(manfd, hashcode);
     writeString(manfd, "\n");
+    //close free and print success message
     free(hashcode);
     free(filename);
     free(manPath);
@@ -155,13 +136,16 @@ int performAdd(char** argv){
 }
 
 int performRemove(char** argv){
+    //open directory to see if local copy exists.
     DIR* d = opendir(argv[2]);
     if(!d){
+        //without a local copy remove fails and notifies client
         printf("Project does not exist locally. Cannot remove file from this project manifest");
         closedir(d);
         return -1;
     }
     closedir(d);
+    //create paths for manifest and file to remove
     int len1 = strlen(argv[2]);
     char* manPath = (char*) malloc(len1 + 11); bzero(manPath, len1+11);
     sprintf(manPath, "%s/%s", argv[2], ".Manifest");
@@ -170,33 +154,16 @@ int performRemove(char** argv){
     char* writefile = (char*) malloc(len3); 
     bzero(writefile, len3);
     sprintf(writefile, "./%s/%s ", argv[2], argv[3]);
-    /*int manfd = open(manPath, O_RDONLY);
-    int size = (int) lseek(manfd, 0, SEEK_END);
-    printf("Size: %d\n", size);
-    char manifest[size+1];
-    lseek(manfd, 0, SEEK_SET);
-    int bytesRead=0, status=0;
-    do{
-        status = read(manfd, manifest + bytesRead, size-bytesRead);
-        if(status < 0){
-            close(manfd);
-            error("Fatal Error: Unable to read .Manifest file\n");
-        }
-        bytesRead += status;
-    }while(status != 0);
-
-    manifest[size] = '\0';*/
-    //char newmani[size+3]; bzero(newmani, size+3);
+    //get manifest as a string to analyze
     char* manifest = stringFromFile(manPath);
     int size = strlen(manifest);
     char* filename = (char*) malloc(len3);
     int i;
+    //loop through manifest string to find file to remove
     for(i = 0; i < size + 1; i++){
         if(manifest[i] == '.'){
             strncpy(filename, &manifest[i], len3);
             filename[len3 - 1] = '\0';
-            printf("length: %d. filename: %s\n", strlen(filename), filename);
-            printf("lenght: %d, writefile: %s\n", strlen(writefile), writefile);
             //found file to remove
             if(!strcmp(filename, writefile)){
                 printf("files ar ethe same name\n");
@@ -208,26 +175,22 @@ int performRemove(char** argv){
                     free(writefile);
                     return -1;
                 }
+                //file was only added locally so can be removed completely from manifest
                 else if(manifest[i-2] == 'A'){
-                    printf("A key before\n");
-                    printf("%d\n", size - len1 -len2 - 39);
                     char newmani[size - len1 - len2 - 39]; bzero(newmani, size - len1 - len2 -39);
                     strncpy(newmani, manifest, i-3);
-                    printf("newmani after first strncpy: %s\n", newmani);
                     strcat(newmani, &manifest[i+len1+len2+ 37]);
-                    printf("newmani after second strcpy: %s\n", newmani);
                     remove(manPath);
                     int newfd = open(manPath, O_CREAT | O_WRONLY, 00600);
-                    printf("newfd: %d\n", newfd);
                     writeString(newfd, newmani);
                     free(filename);
                     free(manPath);
                     free(writefile);
                     close(newfd);
-                    printf("Removed file from manifest\n");
+                    printf("Removed locally added file from manifest\n");
                     return 0;
                 }
-                //did not remove file so need to add R
+                //did not remove file yet so need to add R
                 char newmani[size+3]; bzero(newmani, size+3);
                 //did not remove file so need to add R
                 strncpy(newmani, manifest, i-1); //-1 is to remove the space
@@ -247,6 +210,7 @@ int performRemove(char** argv){
             else while(manifest[i] != '\n' && manifest[i] != '\0') i++;
         }
     }
+    //if not found, let user know they cannot remove a file that does not exist in the project
     free(manPath);
     free(filename);
     free(writefile);
@@ -698,25 +662,27 @@ int performCommit(int sockfd, char** argv){
 }
 
 int performUpgrade(int sockfd, char** argv, char* updatePath){
+    //send project name to server to see if it exists
     char* projName = messageHandler(argv[2]);
     write(sockfd, projName, strlen(projName));
     char succ[5]; succ[4] = '\0';
+    //receive confirmation on whether the project exists on the server
     read(sockfd, succ, 4);
     if(!strcmp(succ, "fail")){
         printf("Could not find project on server\n");
         free(projName);
         return -1;
     }
-    /*int updatefd = open(updatePath, O_RDONLY);
-    int size = lseek(updatefd, 0, SEEK_END);*/
+    //write update file as a string
     char* update = stringFromFile(updatePath);
+    //if update file is empty, we're done
     if(update[0]=='\0'){
         printf("Project is up to date\n");
         remove(updatePath);
         return 1;
     }
 
-    //send version number to sever to check if update num matches manifest num
+    //send version number to server to check if update num matches manifest num
     int k = 0; 
     while(update[k] != '\n') k++;
     update[k] = '\0';
@@ -725,8 +691,10 @@ int performUpgrade(int sockfd, char** argv, char* updatePath){
     free(verNum);
     update[k] = '\n';
 
+    //read if server version number matches update version
     read(sockfd, succ, 4);
     if(!strcmp(succ, "fail")){
+        //they dont match so fails 
         printf("Version numbers did not match up. Please update again\n");
         free(update);
         return -1;
@@ -734,30 +702,11 @@ int performUpgrade(int sockfd, char** argv, char* updatePath){
 
     //remake manifest if accepted
     
+    //write manifest file path and remove manifest file
     char manifestFile[(strlen(argv[2]) + 11)];
     sprintf(manifestFile, "%s/.Manifest", argv[2]);
     remove(manifestFile);
-    /*char* manifest = readNClient(sockfd, readSizeClient(sockfd));
-    printf("%s\n", manifest);
-    int manfd = open(manifestFile, O_WRONLY | O_CREAT, 00600);
-    writeString(manfd, manifest);
-    close(manfd);
-    free(manifest);*/
-
-    /*lseek(updatefd, 0, SEEK_SET);
-    char update[size+1];
-    int bytesRead=0, status=0;
-    do{
-        status = read(updatefd, update + bytesRead, size-bytesRead);
-        if(status < 0){
-            close(updatefd);
-            error("Fatal Error: Unable to read .Update file\n");
-        }
-        bytesRead += status;
-    }while(status != 0);
-    update[size] = '\0';
-    close(updatefd);*/
-
+    
     //Set up for sending a list of files to the server. Start with manifest
     int i =0, j = 0;
     int numFiles = 1;
@@ -767,8 +716,10 @@ int performUpgrade(int sockfd, char** argv, char* updatePath){
     int track = manifestPathProtoLen;
     sprintf(addFile, "%s", manifestPathProto);
 
+    //read update file as string
     for(i = 0; i < strlen(update); i++){
         switch(update[i]){
+            //if its an add or a modify write the file path in protocol as a list
             case 'A':
             case 'M':{
                 i = i+2;
@@ -800,30 +751,22 @@ int performUpgrade(int sockfd, char** argv, char* updatePath){
     addFile = temp;
     char numFilesStr[12];
     sprintf(numFilesStr, "%d", numFiles);
+    //send list of files needed in protocol to server
     write(sockfd, addFile, track+1+strlen(numFilesStr));
     free(addFile);
 
+    // receive tarred file from server with all files to add/modify
     char* tarFilePath = readWriteTarFile(sockfd);
+    //untar the file to create all new needed files from the server
     char untarCommand[strlen(tarFilePath)+12];
     sprintf(untarCommand, "tar -xzvf %s", tarFilePath);
     system(untarCommand);
     remove(tarFilePath);
     free(tarFilePath);
-
-    /*
-    i = 0;
-    for(i = 0; i< numFiles; i++){
-        char* filePath = readNClient(sockfd, readSizeClient(sockfd));
-        int fd = fileCreator(filePath);
-        char* fileCont = readNClient(sockfd, readSizeClient(sockfd));
-        printf("Received from socket %d:\n%s\n%s\n", sockfd, filePath, fileCont);
-        writeString(fd, fileCont);
-        close(fd);
-        free(filePath);
-        free(fileCont);
-    }*/
+    //write success to the server
     write(sockfd, "Succ", 4);
     printf("Wrote Files\n");
+    //remove update file
     remove(updatePath);
     free(projName);
     return 0;
@@ -849,9 +792,7 @@ int fileCreator(char* path){
 }
 
 int performPush(int sockfd, char**argv, char* commitPath){
-    //send the .commit
-    
-    //close(commitfd);
+    //write the commit file to the server
     printf("commitpath: %s\n", commitPath);
     char* commit = stringFromFile(commitPath);
     char* commitmsg = messageHandler(commit);
@@ -879,10 +820,12 @@ int performPush(int sockfd, char**argv, char* commitPath){
     //Setup for list of to-be-deleted files
     char* delFile = (char*) malloc(1); delFile[0] = '\0';
     int addTrack = strlen(tarCommand), delTrack = 0;
+    //loop through commit file based on each filename
     for(i = 0; i < strlen(commit); i++){
         while(commit[i] >= '0' && commit[i] <= '9') i++;
         
         switch(commit[i]){
+            //if it needs to be deleted just gets added to a list of files to delete
             case 'D':{
                 i = i+2;
                 int end = i;
@@ -899,6 +842,7 @@ int performPush(int sockfd, char**argv, char* commitPath){
                 free(fileAndSize);
                 delFile = temp;
                 break;}
+            //if it needs to be added or modified, it gets added to the delete list and an add list
             case 'A':
             case 'M':{
                 i = i+2;
@@ -919,21 +863,6 @@ int performPush(int sockfd, char**argv, char* commitPath){
                 numAddFiles++;
                 writeString(tarList, filename);
                 writeString(tarList, "\n");
-                /*
-                addTrack+= strlen(filename)+1;
-                temp = (char*) malloc(addTrack+1);
-                sprintf(temp, "%s %s", tarCommand, filename);
-                free(tarCommand);
-                tarCommand = temp;
-                /*
-                char* file = stringFromFile(filename);
-                char* fileContandSize = messageHandler(file);
-                addTrack+= strlen(fileContandSize);
-                temp = (char*) malloc(addTrack +1);
-                sprintf(temp, "%s%s", addFile, fileContandSize);
-                free(addFile);
-                free(fileContandSize);
-                addFile = temp;*/
                 break;
             }
             default: break;
@@ -948,16 +877,17 @@ int performPush(int sockfd, char**argv, char* commitPath){
     free(delFile);
     delFile = temp;
     char number[12]; sprintf(number, "%d", numDelFiles);
+    //send list of files to delete to server
     write(sockfd, delFile, delTrack+1+strlen(number));
     free(delFile);
-
+    //read success of deletes
     read(sockfd, succ, 4);
-    printf("Del Succ?: %s\n", succ);
 
     //Tar the add and modify files and send it over
     //We already initialized the command, and we've been adding to the end of it as we read
     close(tarList);
 
+    //if number of files to add is > 0, tar file of these files is created and sent to server. Otherwise the server is told no tar file is necessary
     if(numAddFiles > 0){
         system(tarCommand);
         write(sockfd, "succ", 4);
@@ -968,34 +898,19 @@ int performPush(int sockfd, char**argv, char* commitPath){
     }
     remove("tarList.txt");
 
-
-    /*
-    //addfile is a list of all files and their contents
-    char numTemp[12];
-    sprintf(numTemp, "%d", numAddFiles);
-    int numLen = strlen(numTemp);
-    temp = malloc(addTrack + numLen+2);
-    sprintf(temp, "%d:%s", numAddFiles, addFile);
-    free(addFile);
-    addFile = temp;
-    write(sockfd, addFile, addTrack+numLen+1);
-    free(addFile);
     read(sockfd, succ, 4);
-    printf("Add Succ?: %s\n", succ);*/
-
-    read(sockfd, succ, 4);
-    perror("Test");
-    printf("Final manifest success?: %s\n", succ);
     remove(commitPath);
 
-
+    //write the manifest from the server now
     char* manPath = readNClient(sockfd, readSizeClient(sockfd));
     remove(manPath);
     char* manifest = readNClient(sockfd, readSizeClient(sockfd));
     int manfd = open(manPath, O_CREAT|O_WRONLY, 00600);
     writeString(manfd, manifest);
+    //write success of manifest creation to server
     write(sockfd, "succ", 4);
     
+    //free and send user a success message
     free(tarCommand);
     free(manPath);
     free(manifest);
