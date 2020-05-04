@@ -561,25 +561,35 @@ void* performRollback(int socket, void* arg){
 
     int verNumStringLen = readSizeClient(socket);
     char* verNumString = readNClient(socket, verNumStringLen);
-    char projVerPath[projNameLen + verNumStringLen + 3];
-    sprintf(projVerPath, "%s/.%d", projName, atoi(verNumString));
+    char projVerPath[projNameLen + verNumStringLen + 11];
+    sprintf(projVerPath, "%s/.v%s.tar.gz", projName, verNumString);
 
-    DIR* dir = opendir(projVerPath);
-    if(dir != NULL) write(socket, "Succ", 4);
+    int tarFile = open(projVerPath, O_RDONLY);
+    if(tarFile > 0) write(socket, "Succ", 4);
     else{
         write(socket, "fail", 4);
         free(projName);
         free(verNumString);
         return;
     }
-    closedir(dir);
+    close(tarFile);
 
-    char syscmd[10+projNameLen*2 + verNumStringLen];
+    int projVerPathLen = strlen(projVerPath); 
+    char syscmd[16+projNameLen + projVerPathLen];
     sprintf(syscmd, "mv %s .", projVerPath);
     system(syscmd);
     sprintf(syscmd, "rm -r %s", projName);
-    system(syscmd); 
-    sprintf(syscmd, "mv %s %s", projVerPath, projName);
+    system(syscmd);
+    //sprintf(syscmd, "mv %s %s", projVerPath, projName);
+    sprintf(syscmd, "tar -xzvf %s", projVerPath+projNameLen+1);
+    system(syscmd);
+    remove(projVerPath+projNameLen+1);
+
+    sprintf(syscmd, "mv %s/.v%s .", projName, verNumString);
+    system(syscmd);
+    sprintf(syscmd, "rm -r %s", projName);
+    system(syscmd);
+    sprintf(syscmd, "mv .v%s %s", verNumString, projName);
     system(syscmd);
     
     write(socket, "succ", 4);
@@ -613,7 +623,7 @@ int createProject(int socket, char* name){
     writeString(manifest, "0\n");
     printf("Succesful server-side project creation. Notifying Client\n");
 
-    //Write the history
+    /*//Write the history
     char historyPath[11+strlen(name)];
     sprintf(historyPath, "%s/%s", name, ".History");
     int history = open(historyPath, O_CREAT| O_WRONLY, 00600);
@@ -623,10 +633,10 @@ int createProject(int socket, char* name){
         rmdir(name); //We don't care if this fails because that just means the directory already existed beforehand
         return -1;
     }
-    writeString(history, "0\n\n");
+    writeString(history, "0\n\n");*/
     write(socket, "succ:", 5);
     close(manifest);
-    close(history);
+    //close(history);
     return 0;
 }
 
