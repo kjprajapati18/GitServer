@@ -23,37 +23,42 @@
         We also may need to change the #include headers
 
     COMMENT AND CLEAN UP PRINT STATEMENTS
-    WTFTest
     testplan.txt
     testcases.txt
     Finish up readme.pdf
+    WTFTest
 */
 
+//Set global variables so that signal handler can access them
 int sockfd;
 int killProgram = 0;
 void interruptHandler(int sig){
     killProgram = 1;
-    close(sockfd);
+    close(sockfd);  //Prevents other connections from being accepted
 }
 
 
 int main(int argc, char* argv[]){
+    //Get rid of buffer in stdout
     setbuf(stdout, NULL);
-    //int sockfd;
     signal(SIGINT, interruptHandler);
     int port;
     char* ipAddr;
     int bytes;
 
     char buffer[256];
-    //Should we check that IP/Host && Port are valid
+    
+
     if(strcmp(argv[1], "configure") == 0){
         if(argc < 4) error("Not enough arguments for configure. Need IP & Port\n");
         writeConfigureFile(argv[2], argv[3]);
         return 0;
     }
+
     //figure out what command to operate
     command mode = argCheck(argc, argv[1]);
+
+    //Exit on error. Don't try to connect to server if its add/remove
     if(mode == ERROR){
         printf("Please enter a valid command with the valid arguments\n");
         return -1;
@@ -67,12 +72,13 @@ int main(int argc, char* argv[]){
         return 0;
     }
 
+    //Read IP and port from .configure file. Exit if no .configure
     int configureFile = open(".configure", O_RDONLY);
     if(configureFile < 0) error("Fatal Error: There is no configure file. Please use ./WTF configure <IP/host> <Port>\n");
     ipAddr = getConfigInfo(configureFile, &port);
     close(configureFile);
 
-    //connectToServer(ipAddr, port);
+    //Set up connection, quit if something goes wrong besides not connecting to server 
     struct sockaddr_in servaddr;
     struct hostent *server;
 
@@ -83,7 +89,7 @@ int main(int argc, char* argv[]){
     else printf("successfully opened socket\n");
 
     server = gethostbyname(ipAddr);
-    free(ipAddr); //No longer needed
+    free(ipAddr); //ipAddr is no longer needed
 
     if (server == NULL){
         printf("Fatal Error: Cannot get host. Is the given IP/host correct?\n");
@@ -94,8 +100,9 @@ int main(int argc, char* argv[]){
     bzero(&servaddr, sizeof(servaddr));
     servaddr.sin_family = AF_INET;
     bcopy((char *)server->h_addr, (char *)&servaddr.sin_addr.s_addr, server->h_length);
-    //servaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
     servaddr.sin_port = htons(port);
+
+    //Keep trying to connect to server every 3 seconds until SIGINT or connect
     while(connect(sockfd, (struct sockaddr*) &servaddr, sizeof(servaddr)) != 0){
         printf("Error: Could not connect to server. Retrying in 3 seconds...\n");
         sleep(3);
@@ -107,19 +114,21 @@ int main(int argc, char* argv[]){
     }
     printf("successfully connected to host.\n");
     
+    //Read that we are successfully connected. Then write to server the command
     char cmd[3]; bzero(cmd, 3);
     read(sockfd, buffer, 32);
     printf("%s\n", buffer);
     sprintf(cmd, "%d", mode);
     write(sockfd, cmd, 3);
-    //write(sockfd, argv[1], strlen(argv[1]));
+    
+    //Perform the right operation based on what command user gave
     switch(mode){
         case checkout:
-            printf("checkout\n");
+            printf("Performing Checkout\n");
             performCheckout(sockfd, argv);
             break;
         case update:          
-            printf("update\n");
+            printf("Performing Update\n");
             performUpdate(sockfd, argv);
             write(sockfd, "4:Done", 6);
             break; 
@@ -148,7 +157,7 @@ int main(int argc, char* argv[]){
             performUpgrade(sockfd, argv, dotfilepath);
             break;}
         case commit: 
-            printf("commit\n");
+            printf("Performing Commit\n");
             performCommit(sockfd, argv);
             break;
         case push:{ 
@@ -186,26 +195,40 @@ int main(int argc, char* argv[]){
             //printf("%s\n", hash("hashtest.txt"));
             break;}
         case currentversion:{
+            //Send project Name over
             char sendFile[12+strlen(argv[2])];
             sprintf(sendFile, "%d:%s", strlen(argv[2]), argv[2]);
             write(sockfd, sendFile, strlen(sendFile));
-            char* test = readNClient(sockfd, readSizeClient(sockfd)); //Throw away the filePath but make sure its not an error message
+            
+            char* test = readNClient(sockfd, readSizeClient(sockfd)); //Read/Throw away the filePath but make sure its not an error message
             if(!strncmp(test, "Could", 5)){
-                printf("%s\n", test);
+                printf("Error: %s\n", test);
                 free(test);
                 break;
             }
-            char* manifest = readNClient(sockfd, readSizeClient(sockfd));
+            free(test);
+            
+            char* manifest = readNClient(sockfd, readSizeClient(sockfd)); //Read the actual data (.manifest)
             printf("Success! Current Version received:\n");
-            write(sockfd, "4:Done", 6);
-            printCurVer(manifest);
+            write(sockfd, "4:Done", 6); //Tell the server that we are done. Connection can be terminated
+            printCurVer(manifest); //Process the .manifest to print currentversion
             free(manifest);
             break;}
         case history:{
+            //Send project Name over
             char sendFile[12+strlen(argv[2])];
             sprintf(sendFile, "%d:%s", strlen(argv[2]), argv[2]);
             write(sockfd, sendFile, strlen(sendFile));
-            readNClient(sockfd, readSizeClient(sockfd)); //Throw away the filePath
+            
+            char* confirm = readNClient(sockfd, readSizeClient(sockfd)); //Read/Throw away the filePath, make sure its not an error
+            if(!strncmp(confirm, "Could", 5)){
+                printf("Error: %s\n", confirm);
+                free(confirm);
+                break;
+            }
+            free(confirm);
+            
+            //Read .History and print out
             char* history = readNClient(sockfd, readSizeClient(sockfd));
             printf("Success! History received:\n%s", history);
             free(history);

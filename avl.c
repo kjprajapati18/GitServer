@@ -181,7 +181,7 @@ avlNode* fillAvl(char** manifestPtr){
         //Convert file version to int
         advanceToken(manifestPtr, ' ');
 
-        //Perform a similar logic to extract path and Hash
+        //Perform a similar logic to extract path string and Hash code string
         filePath = *manifestPtr;
         advanceToken(manifestPtr, ' ');
 
@@ -195,7 +195,9 @@ avlNode* fillAvl(char** manifestPtr){
     return head;
 }
 
-//Do not call this function with \0 as delimiter
+//Assumption is that \0 is never the delimiter (we only call with ' ' or '\n')
+//Goes through a string (usually the data of a file) sets the first occurrence of the delimiter to a \0 (essentially splitting the string)
+//The function then sets the passed in ptr to the character after this null token
 void advanceToken(char** ptr, char delimiter){
     if(*(*ptr) == '\0') return;
     while(*(*ptr) != delimiter && *(*ptr) != '\0') (*ptr)++;
@@ -205,6 +207,7 @@ void advanceToken(char** ptr, char delimiter){
     }
 }
 
+//prints AVL in pre-order
 void printAVLList(avlNode* head){
     if(head == NULL) return;
     printf("File Ver: %s/%d\n", head->ver, head->verNum);
