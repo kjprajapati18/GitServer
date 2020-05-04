@@ -127,7 +127,9 @@ int main(int argc, char* argv[]){
             int len = strlen(argv[2]);
             char dotfilepath[len + 11]; dotfilepath[0] = '\0';
             sprintf(dotfilepath, "%s/.Conflict", argv[2]);
-            if(open(dotfilepath, O_RDONLY) > 0){
+            int conflictFile = open(dotfilepath, O_RDONLY);
+            if(conflictFile> 0){
+                close(conflictFile);
                 printf("Conflicts exist. Please resolve all conflicts and update\n");
                 write(sockfd, "8:Conflict", 10);
                 return -1;
@@ -135,11 +137,13 @@ int main(int argc, char* argv[]){
             bzero(dotfilepath, len+9);
             sprintf(dotfilepath, "%s/.Update", argv[2]);
             printf("%s\n", dotfilepath);
-            if(open(dotfilepath, O_RDONLY)< 0) {
+            int updateFile = open(dotfilepath, O_RDONLY);
+            if(updateFile < 0) {
                 printf("No openable update file available. First run an update before upgrading\n");
                 write(sockfd, "6:Update", 8);
                 return -1;
             }
+            close(updateFile);
             write(sockfd, "4:Succ", 6);
             performUpgrade(sockfd, argv, dotfilepath);
             break;}

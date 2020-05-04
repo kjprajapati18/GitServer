@@ -151,10 +151,12 @@ void* performUpgradeServer(int socket, void* arg){
         free(confirmation);
         return;
     }
-    char *projName = readNClient(socket, readSizeClient(socket));
+    free(confirmation);
+    
+    int projNameLen = readSizeClient(socket);
+    char *projName = readNClient(socket, projNameLen);
     printf("%s\n", projName);
     node* found = findNode(((data*) arg)->head, projName);
-    free(confirmation);
     //gotta do something here to inform client. give it an ok
     if(found == NULL){
         printf("Cannot find project with given name\n");
@@ -164,11 +166,12 @@ void* performUpgradeServer(int socket, void* arg){
     }
     pthread_mutex_lock(&(found->mutex));
     write(socket, "succ", 4);
-    char manifestFile[strlen(projName) + 11];
+    char manifestFile[projNameLen + 11];
     sprintf(manifestFile, "%s/.Manifest", projName);
     printf("%s\n", manifestFile);
     char* manifest = stringFromFile(manifestFile);
     printf("%s\n", manifest);
+
     //check manifest vernum with client's update vernum
     char* updateVerNum = readNClient(socket, readSizeClient(socket));
     int k = 0; while(manifest[k] != '\n') k++;
@@ -189,17 +192,30 @@ void* performUpgradeServer(int socket, void* arg){
         free(updateVerNum);
     }
     //close(manfd);
-    char* manifestmsg = messageHandler(manifest);
-    write(socket, manifestmsg, strlen(manifestmsg));
-    free(manifestmsg);
+
+    // char* manifestmsg = messageHandler(manifest);    WRITE ONE TAR FILE
+    // write(socket, manifestmsg, strlen(manifestmsg));
+    // free(manifestmsg);
     free(manifest);
+
+    //Setup for tarring
+    char tarListPath[projNameLen + 12];
+    sprintf(tarListPath, "%sTarList.txt", projName);
+    int tarListPathLen = strlen(tarListPath);
+
+    int tarList = open(tarListPath, O_CREAT | O_WRONLY, 00600);
+    char* tarCommand = (char*) malloc(32+projNameLen+tarListPathLen);
+    char tarPath[projNameLen+12];
+    sprintf(tarPath, "%sSend.tar.gz", projName);
+    sprintf(tarCommand, "tar -czvf %s -T %s", tarPath, tarListPath);
+    
     //char bigboi[11];
     int numFiles = readSizeClient(socket);
     printf("# of files: %d", numFiles);
     int i;
     for(i = 0; i < numFiles; i++){
         char* filepath = readNClient(socket, readSizeClient(socket));
-        char* file = stringFromFile(filepath);
+        /*char* file = stringFromFile(filepath);
         char* fileToSend = messageHandler(file);
         char* fileNameToSend = messageHandler(filepath);
         int thingLen = strlen(fileToSend)+strlen(fileNameToSend);
@@ -210,8 +226,18 @@ void* performUpgradeServer(int socket, void* arg){
         free(fileToSend);
         free(filepath);
         free(thing);
-        free(file);
+        free(file);*/
+        writeString(tarList, filepath);
+        writeString(tarList, "\n");
+        free(filepath);
     }
+    close(tarList);
+    system(tarCommand);
+    sendTarFile(socket, tarPath);
+    remove(tarPath);
+    remove(tarListPath);
+
+
     char succ[5]; succ[4] = '\0';
     read(socket, succ, 4);
     printf("succ msg: %s\n", succ); 
