@@ -942,6 +942,7 @@ int performPush(int sockfd, char**argv, char* commitPath){
     free(tarCommand);
     free(manPath);
     free(manifest);
+    printf("Successfully pushed to server!\n");
     return 0;
 }
 

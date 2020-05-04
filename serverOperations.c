@@ -273,11 +273,14 @@ void* performPushServer(int socket, void* arg, char* ip){
     commit[index] = '\0';
     int verNum = atoi(commit);
     commit[index] = '\n';
-    char syscmd[24+2*projNameLen];
+    char syscmd[64+2*projNameLen]; //Using 1 buffer for all commands to save space
     sprintf(syscmd, "cp -r %s old%s", projName, projName);
     system(syscmd);
     sprintf(syscmd, "mv old%s %s/.v%d", projName, projName, verNum); 
     system(syscmd);
+    sprintf(syscmd, "tar -czvf %s/.v%d.tar.gz %s/.v%d --remove-files", projName, verNum, projName, verNum);
+    system(syscmd);
+
     //write the commit to .history
     int histfd = open(hispath, O_CREAT| O_WRONLY|O_APPEND, 00600);
     writeString(histfd, commit);
@@ -359,9 +362,10 @@ void* performPushServer(int socket, void* arg, char* ip){
     /*manifest = stringFromFile(manpath);
     char* sendMani = messageHandler(manifest);
     write(socket, sendMani, strlen(sendMani));*/
-    printf("Waiting for read\n");
+    
     read(socket, succ, 4);
     pthread_mutex_unlock(&(found->mutex));
+    printf("Successfully received client's push\n");
     return;
 }
 
