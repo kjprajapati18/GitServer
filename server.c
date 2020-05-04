@@ -20,21 +20,21 @@
 #include "sharedFunctions.h"
 
 
-/*  
-    --Do stuff mentioned in client todo list
-*/
-
 void* switchCase(void* arg);    //Thread creation and operation handler
 void interruptHandler(int sig);
 
+//Global variables that interrupt handler needs
 int killProgram = 0;
-int sockfd; int ret;
+int sockfd;
+
+//Globals for proper thread closing and freeing
+int ret;
 pthread_mutex_t threadListLock; 
 
 
 
 int main(int argc, char* argv[]){
-
+    //Should only open with port #
     if(argc != 2) error("Fatal Error: Please enter 1 number as the argument (port)\n");
 
     signal(SIGINT, interruptHandler);

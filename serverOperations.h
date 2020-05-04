@@ -3,9 +3,8 @@
 
 void* performCreate(int, void*);
 void* performDestroy(int, void*);
-void* performCurVer(int, void*);
+void* performCurVer(int, void*); //Perform Current Version && perform Update are the same
 void performHistory(int, void*);
-//void performUpdate(int, void*);
 void* performUpgradeServer(int, void*);
 void* performPushServer(int, void*, char*);
 void* performCommit(int, void*, char*);

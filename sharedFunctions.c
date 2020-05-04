@@ -11,7 +11,7 @@
 
 #include "sharedFunctions.h"
 
-
+//Read from socket byte by byte until we hit :. Then atoi the result
 int readSizeClient(int socket){
     int status = 0;
     int bytesRead = 0;
@@ -26,6 +26,7 @@ int readSizeClient(int socket){
     return atoi(buffer);
 }
 
+//Read the next Size bytes from socket
 char* readNClient(int socket, int size){
     char* buffer = malloc(sizeof(char) * (size+1));
     printf("\tAttempting to read %d bytes...\n", size);
@@ -34,11 +35,13 @@ char* readNClient(int socket, int size){
     return buffer;
 }
 
+//print and quit whole program (not used after initial set-up)
 void error(char* msg){
     perror(msg);
     exit(1);
 }
 
+//Convert a string into our protocol. <string length>:<string>
 char* messageHandler(char* msg){
     int size = strlen(msg);
     char* returnMsg = (char*) malloc(12+size); bzero(returnMsg, 12+size);
@@ -46,11 +49,10 @@ char* messageHandler(char* msg){
     return returnMsg;
 }
 
-//Writes #:Data for manifest 
-//# is the size of the Manifest while Data is the actual content
-//REPLACE A BUNCH OF THESE LINES WITH readFile(path)
+//Writes <pathLen>:<path><dataLen>:<Data> to socket for given file 
 int sendFile(int sockfd, char* pathName){
 
+    //open given file and compute sizes
     int manifest = open(pathName, O_RDONLY);
     if(manifest < 0) return 2;
     int fileSize = (int) lseek(manifest, 0, SEEK_END);
@@ -61,23 +63,23 @@ int sendFile(int sockfd, char* pathName){
     int sendSize = pathLen + 26 + fileSize; //26 accounts for : and digits in string and \0
     char* fileData = (char*) malloc(sizeof(char) * (sendSize)); bzero(fileData, sendSize);
     
+    //Write the inital protocol
     sprintf(fileData, "%d:%s%d:", pathLen, pathName, fileSize);
 
+    //Append file data to the end of the string
     int status = 0, bytesRead = 0, start = strlen(fileData);
-    
     do{
         status = read(manifest, fileData + bytesRead+start, fileSize - bytesRead);
         bytesRead += status;
     }while(status > 0 && bytesRead < fileSize);
     
+    //Close, check, free, write Protocol Message of File
     close(manifest);
     if(status < 0){
         free(fileData);
         return 1;
     }
-
     write(sockfd, fileData, start+bytesRead); 
-    printf("Sent String: %s\n", fileData);   
     free(fileData);
     return 0;
 }
@@ -97,6 +99,7 @@ int writeString(int fd, char* string){
     return 0;
 }
 
+//Writes N bytes to an fd (useful for non-strings)
 int writeNString(int fd, char* string, int len){
     int status = 0, bytesWritten = 0, strLength = len;
     
@@ -109,10 +112,12 @@ int writeNString(int fd, char* string, int len){
     return 0;
 }
 
+//Write fail to the socket in protocol form
 void sendFail(int socket){
     write(socket, "4:fail", 6);
 }
 
+//Open filePath and return a string of a Data or NULL on open/read error
 char* stringFromFile(char* path){
     int fd = open(path, O_RDONLY);
     if(fd < 0) return NULL;
@@ -135,6 +140,7 @@ char* stringFromFile(char* path){
     return fileData;
 }
 
+//Standard MD5 hashing function that opens a file from path and returns the hash of the file
 char* hash(char* path){
     unsigned char c[MD5_DIGEST_LENGTH];
     int fd = open(path, O_RDONLY);

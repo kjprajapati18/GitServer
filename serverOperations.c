@@ -22,25 +22,25 @@
 
 void* performCreate(int socket, void* arg){
 
-    printf("Attempting to read project name...\n");
+    //Read Project name
     node** head = &(((data*) arg)->head);
     char* projectName = readNClient(socket, readSizeClient(socket));
-    //find node check to see if it already exists in linked list
-    //treat LL as list of projects for all purposes
-    pthread_mutex_lock(&headLock);
-    *head = addNode(*head, projectName);
 
+    //Lock the list of projects so that no one else can accidnetly delete/change things
+    pthread_mutex_lock(&headLock);
+    //Add the node and find it
+    *head = addNode(*head, projectName);
     node* found = findNode(*head, projectName);
-    printf("Test found name: %s\n", found->proj);
+    
+    //lock the project so no one else can edit. Then physically create the project
     pthread_mutex_lock(&(found->mutex));
     int creation = createProject(socket, projectName);
     pthread_mutex_unlock(&(found->mutex));
 
-        
+    //If creation failed, let client know and remove the Node we added
     if(creation < 0){
         write(socket, "fail:", 5);
         *head = removeNode(*head, projectName);
-
     }
 
     pthread_mutex_unlock(&headLock);
@@ -49,54 +49,62 @@ void* performCreate(int socket, void* arg){
 
 
 void* performDestroy(int socket, void* arg){
-    //fully lock this one prob
+    
     node** head = &(((data*) arg)->head);
     char* projName = readNClient(socket, readSizeClient(socket));
     //now projName has the string name of the file to destroy
     
+    //Lock the list of projects to prevent concurrent edits from messing up list. Find actual project
     pthread_mutex_lock(&headLock);
     node* found = findNode(*head, projName);
     if(found == NULL) {
-        
+        //If we cant find the project let the client know.
         printf("Could not find project with that name to destroy (%s)\n", projName);
         char* returnMsg = messageHandler("Could not find project with that name to destroy");
         int bytecheck = write(socket, returnMsg, strlen(returnMsg));
         free(returnMsg);
     }
     else{
+        //Otherwise set the first char to '\0' so no one else can find it 
         *(found->proj) = '\0';
         
+        //lock the project repository in case someone found it before we changed the name
         pthread_mutex_lock(&(found->mutex));
-        recDest(projName);
+        recDest(projName); //Destroy
         pthread_mutex_unlock(&(found->mutex));
 
+        //Remove the node now that project is deleted
         *head = removeNode(*head, "");
-
+        
+        //Let client know it was successful
         char* returnMsg = messageHandler("Successfully destroyed project");
-        printf("Notifying client\n");
         write(socket, returnMsg, strlen(returnMsg));
         free(returnMsg);
         printf("Successfully destroyed %s\n", projName);
     }
+    //Unlock and free
     pthread_mutex_unlock(&headLock);
     free(projName);
 }
 
 
 void* performCurVer(int socket, void* arg){
-    //fully lock this one prob
+    //Read project name
     node** head = &(((data*) arg)->head);
     int projNameLen = readSizeClient(socket);
     char* projName = readNClient(socket, projNameLen);
     
+    //Find project
     node* found = findNode(*head, projName);
     int check = 0;
     if(found == NULL) {
+        //Let client know it doesn't exist
         printf("Could not find project with that name. Cannot find current version (%s)\n", projName);
         char* returnMsg = messageHandler("Could not find project with that name to perform current verison");
         int bytecheck = write(socket, returnMsg, strlen(returnMsg));
         free(returnMsg);
     }else{
+        //lock project. Send manifest
         pthread_mutex_lock(&(found->mutex));
         char manPath[projNameLen + 12];
         sprintf(manPath, "%s/.Manifest", projName);
@@ -112,6 +120,7 @@ void* performCurVer(int socket, void* arg){
 
 
 void performHistory(int socket, void* arg){
+    //Read project name
     node** head = &(((data*) arg)->head);
     int projNameLen = readSizeClient(socket);
     char* projName = readNClient(socket, projNameLen);
@@ -119,12 +128,14 @@ void performHistory(int socket, void* arg){
     node* found = findNode(*head, projName);
     int check = 0;
     if(found == NULL) {
+        //If you cant find project, send mesage to client
         printf("Could not find project with that name. Cannot find history (%s)\n", projName);
         char* returnMsg = messageHandler("Could not find project with that name to perform History");
         int bytecheck = write(socket, returnMsg, strlen(returnMsg));
         free(returnMsg);
     }else{
         pthread_mutex_lock(&(found->mutex));
+        //lock repository and send the .History file
         char manPath[projNameLen + 12];
         sprintf(manPath, "%s/.History", projName);
         check = sendFile(socket, manPath);
@@ -380,26 +391,27 @@ void* performPushServer(int socket, void* arg, char* ip){
 
 
 void* performCommit(int socket, void* arg, char* clientIP){
-    //WRITE BTTER BY CHECKING IF IT FAILED. MAKE SURE TO ADD FAIL CHECKS ON BOTH SIDES
-    //Try to get rid of these god damn nested ifs
-    //2 blocks are not freed!
+    //Read project name
     node** head = &(((data*) arg)->head);
     int projNameLen = readSizeClient(socket);
-    char* projName = readNClient(socket, projNameLen);   //REMEMBER TO FREE THIS!!!
+    char* projName = readNClient(socket, projNameLen);
     
     node* found = findNode(*head, projName);
     int check = 0;
     if(found == NULL) {
+        //Didn't find project, let client know
         printf("Could not find project with that name. Cannot find current version (%s)\n", projName);
         char* returnMsg = messageHandler("Could not find project with that name to perform current verison");
         int bytecheck = write(socket, returnMsg, strlen(returnMsg));
         free(returnMsg);
     }else{
+        //Lock repository
         pthread_mutex_lock(&(found->mutex));
         char manPath[projNameLen + 12];
         sprintf(manPath, "%s/.Manifest", projName);
         int manfd = open(manPath, O_RDONLY);
         
+        //Read project version from manifest
         char verNum[12];
         int bytesRead = 0, status = 0;
         do{
@@ -410,37 +422,43 @@ void* performCommit(int socket, void* arg, char* clientIP){
         close(manfd);
         verNum[bytesRead-1] = '\0';
         
+        //If that failed, let client know
         if(status < 0 || bytesRead ==0 || *verNum == '\n'){
             printf("Failed reading manifest\n");
             sendFail(socket);
             return NULL;
         }
 
-        //Client doesnt need the whole manifest, only the version number
+        //Client doesnt need the whole manifest, send only the version number
         char* sendVerNum = messageHandler(verNum);
         int sendVerNumLen = strlen(sendVerNum);
         int check = write(socket, sendVerNum, sendVerNumLen);
 
         if(check == sendVerNumLen){
+            //Manifest was sent successfully
             printf("Successfully sent manifest to client\n");
             int pathLen = readSizeClient(socket);
             char* commitPath = readNClient(socket, pathLen);
+
+            //Check to make sure that client wants to continue with commit
             if(!strcmp("fail", commitPath)){
                 printf("Client could not complete commit request. Terminating...\n");
                 free(commitPath);
                 pthread_mutex_unlock(&(found->mutex));
                 return NULL;
             }
-            char* commitData = readNClient(socket, readSizeClient(socket));
             
+            //Read Commit data since client wants to continue and sent the commit
+            char* commitData = readNClient(socket, readSizeClient(socket));
+            //Write the .Commit-<IP> file
             int clientIPLen = strlen(clientIP);
-            //printf("%s\n%d\n", clientIP, clientIPLen);
             char commitIP[pathLen + clientIPLen + 2];
             sprintf(commitIP, "%s-%s", commitPath, clientIP);
             remove(commitIP);
             int commitfd = open(commitIP, O_WRONLY | O_CREAT, 00600);
             writeString(commitfd, commitData);
 
+            //Free everything and send a message to client so they know we are done
             free(commitPath);
             free(commitData);
             close(commitfd);
@@ -455,12 +473,12 @@ void* performCommit(int socket, void* arg, char* clientIP){
 
 
 void* performCheckout(int socket, void* arg){
-    //1 memory block lost!!
+    //Read projName
     node** head = &(((data*) arg)->head);
     int projNameLen = readSizeClient(socket);
     char* projName = readNClient(socket, projNameLen);
 
-    
+    //Find project and make sure it exists
     node* found = findNode(*head, projName);
     int check = 0;
     if(found == NULL) {
@@ -469,8 +487,9 @@ void* performCheckout(int socket, void* arg){
         free(projName);
         return;    
     }
-
+    //Send success cuz we found the project
     write(socket, "4:succ", 6);
+    //Check if client wants to continue
     char* confirm = readNClient(socket, readSizeClient(socket));
     if(!strcmp("fail", confirm)){
         free(confirm);
@@ -480,47 +499,30 @@ void* performCheckout(int socket, void* arg){
     }
     free(confirm);
 
+    //Lock repository cuz we're grabbing the latest version
     pthread_mutex_lock(&(found->mutex));
     
+    //Tar command that excludes the server-only files
     int compressLength = projNameLen*4 + 75;
     char* compressCommand = (char*) malloc(compressLength *sizeof(char));
     sprintf(compressCommand, "tar -czvf %s.tar.gz %s --exclude=%s/.Commi* --exclude=%s/.History --exclude=%s/.v*", projName, projName, projName, projName, projName);
     system(compressCommand);
     free(compressCommand);
 
+    //Get tar file path and send it over to client. THen remove
     char tarPath[projNameLen+9];
     sprintf(tarPath, "%s.tar.gz", projName);
-    
     check = sendTarFile(socket, tarPath);
     remove(tarPath);
 
-/*  
-    int tarFd = open(tarPath, O_RDONLY);
-    int bytesRead = 0, status = 0;
-    int tarSize = lseek(tarFd, 0, SEEK_END);
-    lseek(tarFd, 0, SEEK_SET);
-    char* tarData = (char*) malloc(tarSize +1);
-    do{
-        status = read(tarFd, tarData + bytesRead, tarSize - bytesRead);
-        bytesRead+=status;
-    }while(status > 0);
-    close(tarFd);
-    remove(tarPath);
-
-    int tarPathLen = strlen(tarPath);
-    
-    char sendBuffer[tarPathLen+tarSize+27];
-    sprintf(sendBuffer, "%d:%s%d:", tarPathLen, tarPath, tarSize);
-    write(socket, sendBuffer, strlen(sendBuffer));
-    write(socket, tarData, tarSize);
-*/
-
+    //Confirm that the client received it, print out result
     confirm = readNClient(socket, readSizeClient(socket));
     if(!strcmp(confirm, "succ")){
         printf("Client successfully received project: %s\n", projName);
     } else {
         printf("Client failed to received project: %s\n", projName);
     }
+    //Unlock and free
     free(confirm);
     free(projName);
     pthread_mutex_unlock(&(found->mutex));
@@ -592,7 +594,8 @@ void* performRollback(int socket, void* arg){
 
 
 int createProject(int socket, char* name){
-    printf("%s\n", name);
+    
+    //Create Manifest Path
     char manifestPath[11+strlen(name)];
     sprintf(manifestPath, "%s/%s", name, ".Manifest");
     
@@ -602,12 +605,15 @@ int createProject(int socket, char* name){
         printf("Error: Client attempted to create an already existing project. Nothing changed\n");
         return -1;
     }
-    printf("%s\n", manifestPath);
+
+    //Make folder with project name
     int folder = mkdir(name, 0777);
     if(folder < 0){
         printf("Error: Could not create project folder.. Nothing created\n");
         return -2;
     }
+    
+    //Create manifest file and write the manifest there
     manifest = open(manifestPath, O_WRONLY | O_CREAT, 00600);
     if(manifest < 0){
         printf("Error: Could not create .Manifest file. Nothing created\n");
@@ -616,20 +622,9 @@ int createProject(int socket, char* name){
     writeString(manifest, "0\n");
     printf("Succesful server-side project creation. Notifying Client\n");
 
-    /*//Write the history
-    char historyPath[11+strlen(name)];
-    sprintf(historyPath, "%s/%s", name, ".History");
-    int history = open(historyPath, O_CREAT| O_WRONLY, 00600);
-    if(history < 0){
-        printf("Error: History file could not be created. Nothing changed\n");
-        remove(manifestPath);
-        rmdir(name); //We don't care if this fails because that just means the directory already existed beforehand
-        return -1;
-    }
-    writeString(history, "0\n\n");*/
+    //Let client know we succeeded
     write(socket, "succ:", 5);
     close(manifest);
-    //close(history);
     return 0;
 }
 
