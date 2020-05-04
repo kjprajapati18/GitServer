@@ -182,6 +182,16 @@ void* performUpgradeServer(int socket, void* arg){
     pthread_mutex_lock(&(found->mutex));
     //write success of finding project to client
     write(socket, "succ", 4);
+    //read if client has non empty update
+    char succ[5]; succ[4] = '\0';
+    read(socket, succ, 4);
+    if(!strcmp(succ, "fail")){
+        printf("Client has empty .Update file\n");
+        pthread_mutex_unlock(&(found->mutex));
+        free(projName);
+        return;
+    }
+
     //file path for manifest file
     char manifestFile[projNameLen + 11];
     sprintf(manifestFile, "%s/.Manifest", projName);
@@ -242,7 +252,6 @@ void* performUpgradeServer(int socket, void* arg){
     remove(tarListPath);
 
     //wait for success message from client before terminating thread
-    char succ[5]; succ[4] = '\0';
     read(socket, succ, 4);
     pthread_mutex_unlock(&(found->mutex));
 }

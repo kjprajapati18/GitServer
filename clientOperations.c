@@ -61,14 +61,17 @@ int performAdd(char** argv){
     char* manPath = (char*) malloc(len1 + 11); bzero(manPath, len1+11);
     sprintf(manPath, "%s/%s", argv[2], ".Manifest");
     int len2 = strlen(argv[3]);
-    
+    int test = open(manPath, O_RDONLY);
+    if(test < 0){
+        printf("Manifest does not exist in project. Terminating\n");
+        return -1;
+    }
     int len3 = len1+5+len2;
     char* writefile = (char*) malloc(len3); 
     sprintf(writefile, "./%s/%s ", argv[2], argv[3]);
 
     //Check if we can open the file that we want to add and if we can hash it
     writefile[len3-2] = '\0';
-    printf("Size: %d, writeFile: %s", len3-1, writefile);
     char* hashcode = hash(writefile);
     if(hashcode == NULL){
         printf("Fatal Error: Cannot open/hash file. Make sure it exists with write permissions\n");
@@ -103,7 +106,7 @@ int performAdd(char** argv){
                     free(manPath);
                     free(writefile);
                     close(newfd);
-                    printf("Added file to manifest after removing it");
+                    printf("Added file to manifest after removing it prior");
                     return 0;
                 }
                 //found file so cannot add duplicate
@@ -149,6 +152,11 @@ int performRemove(char** argv){
     int len1 = strlen(argv[2]);
     char* manPath = (char*) malloc(len1 + 11); bzero(manPath, len1+11);
     sprintf(manPath, "%s/%s", argv[2], ".Manifest");
+    int test = open(manPath, O_RDONLY);
+    if(test < 0){
+        printf("Manifest does not exist in project. Terminating\n");
+        return -1;
+    }
     int len2 = strlen(argv[3]);
     int len3 = len1+5+len2;
     char* writefile = (char*) malloc(len3); 
@@ -166,7 +174,6 @@ int performRemove(char** argv){
             filename[len3 - 1] = '\0';
             //found file to remove
             if(!strcmp(filename, writefile)){
-                printf("files ar ethe same name\n");
                 //already removed this file
                 if(manifest[i -2] == 'R') {
                     printf("Already removed this file from manifest\n"); 
@@ -678,9 +685,11 @@ int performUpgrade(int sockfd, char** argv, char* updatePath){
     //if update file is empty, we're done
     if(update[0]=='\0'){
         printf("Project is up to date\n");
+        write(sockfd, "fail", 4);
         remove(updatePath);
         return 1;
     }
+    write(sockfd, "succ", 4);
 
     //send version number to server to check if update num matches manifest num
     int k = 0; 

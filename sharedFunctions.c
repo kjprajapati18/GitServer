@@ -37,7 +37,7 @@ char* readNClient(int socket, int size){
 
 //print and quit whole program (not used after initial set-up)
 void error(char* msg){
-    perror(msg);
+    printf("%s", msg);
     exit(1);
 }
 

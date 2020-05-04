@@ -52,6 +52,7 @@ int main(int argc, char* argv[]){
     if(strcmp(argv[1], "configure") == 0){
         if(argc < 4) error("Not enough arguments for configure. Need IP & Port\n");
         writeConfigureFile(argv[2], argv[3]);
+        printf("Successfully created configure file with hostname: %s and port: %s\n", argv[2], argv[3]);
         return 0;
     }
 
