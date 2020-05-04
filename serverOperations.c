@@ -140,44 +140,51 @@ void performHistory(int socket, void* arg){
 
 
 void* performUpgradeServer(int socket, void* arg){
+    //Read confirmation from the client that the client has a .Update and no .Conflict
     char* confirmation = readNClient(socket, readSizeClient(socket));
+    //This will be what the client sends if there is a .Conflict file so the server does nothing
     if(!strcmp(confirmation, "Conflict")){
         printf("There is a Conflict.\n");
         free(confirmation);
         return;
     } 
+    //If the client has no update file, it will send this message and the serer does nothing
     else if(!strcmp(confirmation, "Update")){
         printf("No update file.\n");
         free(confirmation);
         return;
     }
     free(confirmation);
-    
+    //read the project name from the client
     int projNameLen = readSizeClient(socket);
     char *projName = readNClient(socket, projNameLen);
-    printf("%s\n", projName);
+    //check if project with that name exists in the list of mutexes
     node* found = findNode(((data*) arg)->head, projName);
-    //gotta do something here to inform client. give it an ok
+    //if not found, print failure to server and send failure notice to client.
     if(found == NULL){
         printf("Cannot find project with given name\n");
         free(projName);
         write(socket, "fail", 4);
         return;
     }
+    //lock mutex of this project so it cannot be changed while upgrade runs
     pthread_mutex_lock(&(found->mutex));
+    //write success of finding project to client
     write(socket, "succ", 4);
+    //file path for manifest file
     char manifestFile[projNameLen + 11];
     sprintf(manifestFile, "%s/.Manifest", projName);
-    printf("%s\n", manifestFile);
+    //get manifest file into a string
     char* manifest = stringFromFile(manifestFile);
-    printf("%s\n", manifest);
 
-    //check manifest vernum with client's update vernum
+    //check manifest version number with client's update vernum
+    //read client's update file version number 
     char* updateVerNum = readNClient(socket, readSizeClient(socket));
     int k = 0; while(manifest[k] != '\n') k++;
     manifest[k] = '\0';
+    //version numbers do not match so send failure message to client, unlock mutex and terminate
     if(strcmp(manifest, updateVerNum)){
-        printf("version numbers do not match\n");
+        printf("Version numbers do not match between manifest and \n");
         write(socket, "fail", 4);
         pthread_mutex_unlock(&(found->mutex));
         free(manifest);
@@ -185,17 +192,13 @@ void* performUpgradeServer(int socket, void* arg){
         free(projName);
         return;
     }
+    //version numbers do match so send success message to client and continue
     else{
         printf("Version numbers match\n");
         manifest[k] = '\n';
         write(socket, "Succ", 4);
         free(updateVerNum);
     }
-    //close(manfd);
-
-    // char* manifestmsg = messageHandler(manifest);    WRITE ONE TAR FILE
-    // write(socket, manifestmsg, strlen(manifestmsg));
-    // free(manifestmsg);
     free(manifest);
 
     //Setup for tarring
@@ -209,56 +212,46 @@ void* performUpgradeServer(int socket, void* arg){
     sprintf(tarPath, "%sSend.tar.gz", projName);
     sprintf(tarCommand, "tar -czvf %s -T %s", tarPath, tarListPath);
     
-    //char bigboi[11];
+    //read the number of files the client needs from the server
     int numFiles = readSizeClient(socket);
-    printf("# of files: %d", numFiles);
     int i;
+    //read every file name that the client needs and write them to a file
     for(i = 0; i < numFiles; i++){
         char* filepath = readNClient(socket, readSizeClient(socket));
-        /*char* file = stringFromFile(filepath);
-        char* fileToSend = messageHandler(file);
-        char* fileNameToSend = messageHandler(filepath);
-        int thingLen = strlen(fileToSend)+strlen(fileNameToSend);
-        char* thing = malloc(thingLen+1);
-        sprintf(thing, "%s%s", fileNameToSend, fileToSend);
-        write(socket, thing, thingLen);
-        printf("Sent:\t%s\n", thing);
-        free(fileToSend);
-        free(filepath);
-        free(thing);
-        free(file);*/
         writeString(tarList, filepath);
         writeString(tarList, "\n");
         free(filepath);
     }
     close(tarList);
+    //tar the list of files to send
     system(tarCommand);
+    //send the tar file
     sendTarFile(socket, tarPath);
     remove(tarPath);
     remove(tarListPath);
 
-
+    //wait for success message from client before terminating thread
     char succ[5]; succ[4] = '\0';
     read(socket, succ, 4);
-    printf("succ msg: %s\n", succ); 
     pthread_mutex_unlock(&(found->mutex));
 }
 
 
 void* performPushServer(int socket, void* arg, char* ip){
-    
+    //read confirmation from the client that the server can run the push command
     char* confirmation = readNClient(socket, readSizeClient(socket));
-
+    //if confirmation is "Commit" the client has no commit file to send so terminate thread
     if(!strcmp(confirmation, "Commit")){
         printf("There is no commit file. \n");
         free(confirmation);
         return;
     }
+    //read the project name and length of the project name
     int projNameLen = readSizeClient(socket);
     char* projName = readNClient(socket, projNameLen);
-    printf("%s\n", projName);
+    //check if project name exists on server
     node* found = findNode(((data*) arg)->head, projName);
-    //if found is null do something
+    //if not found, then terminate command and let client know
     if(found == NULL){
         free(projName);
         free(confirmation);
@@ -266,18 +259,24 @@ void* performPushServer(int socket, void* arg, char* ip){
         write(socket, "fail", 4);
         return;
     }
+    //lock mutex for this project
     pthread_mutex_lock(&(found->mutex));
+    //write success message to client to let it know to continue
     write(socket, "Succ", 4);
+    //generate paths for the commit file, manifest file and history file
     char commitPath[projNameLen + strlen(ip)+ 10];
     char manpath[projNameLen + 13];
     char hispath[projNameLen + 10];
     sprintf(hispath, "%s/.History", projName);
     sprintf(manpath, "%s/.Manifest", projName);
+    //commit file path should have the client ip address appended on the server side
     sprintf(commitPath, "%s/.Commit-%s", projName, ip);
+    //save commit file as a string
     char* commit = stringFromFile(commitPath);
+    //read the client's commit version
     char* clientcommit = readNClient(socket, readSizeClient(socket));
-    printf("commit: %s", commit);
-    printf("client commit: %s", clientcommit);
+    //compare the two commit files
+    //if they are different, then terminate and send client a failure message
     if(strcmp(clientcommit, commit)){
         printf("Commits do not match, terminating\n");
         write(socket, "Fail", 4);
@@ -285,6 +284,7 @@ void* performPushServer(int socket, void* arg, char* ip){
         free(commit);
         return;
     }
+    //if they are not different, send success message to client, remove all other commits and continue
     else{
         printf("Commits match up\n");
         char command[13+projNameLen];
@@ -293,7 +293,7 @@ void* performPushServer(int socket, void* arg, char* ip){
         write(socket, "Succ", 4);
     }
     
-    //dupe directory and rename old one to version number 
+    //duplicate the directory and compress old version to a tar file
     int index = 0; 
     while(commit[index] != '\n') index++;
     commit[index] = '\0';
@@ -313,8 +313,8 @@ void* performPushServer(int socket, void* arg, char* ip){
     writeString(histfd, "\n");
     close(histfd);
 
-    //start deletions
-    printf("Start of deletions\n");
+    //start deleting files that are specified to delete from the commit. given as a list from the client
+    //deletes files that will be added and modified as well since their new versions will be added from a tarfile soon
     int numFiles = readSizeClient(socket);
     int i = 0;
     for(i = 0; i< numFiles; i++){
@@ -322,13 +322,15 @@ void* performPushServer(int socket, void* arg, char* ip){
         remove(delPath);
         free(delPath);
     }
-    printf("End of deletions\n");
+    //write success notification to client
     write(socket, "Succ", 4);
 
     char succ[5]; succ[4] = '\0';
     char* tarFilePath = NULL;
     read(socket, succ, 4); //We are expecting either succ or fail, depending on tar file
+    //if success, tar file is created and sent over to server with files that need to be added
     if(!strcmp("succ", succ)){
+        //untar file to get updated files
         tarFilePath = readWriteTarFile(socket);
         char untarCommand[strlen(tarFilePath)+12];
         sprintf(untarCommand, "tar -xzvf %s", tarFilePath);
@@ -336,60 +338,41 @@ void* performPushServer(int socket, void* arg, char* ip){
         remove(tarFilePath);
         free(tarFilePath);
     }
-    /*
-    numFiles = readSizeClient(socket);
-    for(i = 0; i < numFiles; i++){
-        char* path = readNClient(socket, readSizeClient(socket));
-        remove(path);
-        int addFilefd = open(path, O_CREAT | O_WRONLY, 00600);
-        if(addFilefd < 0){
-            printf("cannot open path\n");
-            write(socket, "FAIL", 4);
-            free(path);
-            close(addFilefd);
-            return;
-        }
-        char* fileCont = readNClient(socket, readSizeClient(socket));
-        writeString(addFilefd, fileCont);
-        free(path); free(fileCont);
-        close(addFilefd);
-    }*/
-    //write(socket, "SucE", 4);
-
-
     //manifest creation
     char* manifest = stringFromFile(manpath);
     char* manptr = manifest;
     char* commitptr = commit;
     advanceToken(&commitptr, '\n');
     advanceToken(&manptr, '\n');
+    //create AVL trees out of the manifest file and the commit file for fast traversal and updating of information
     avlNode* commitHead = fillAvl(&commitptr);
     avlNode* manHead = fillAvl(&manptr);
+    //make the commit file's changes to the manifest
     manHead = commitChanges(commitHead, manHead); 
-    printf("asdfsdf\n");
+    //rewrite manifest
     remove(manpath);
-    printf("ManPath: %s", manpath);
     int fd = open(manpath, O_CREAT | O_WRONLY | O_APPEND, 00600);
     char verString[13];
     sprintf(verString, "%d\n", ++verNum);
     writeString(fd, verString);
+    //write the updated manifest from the AVL tree
     writeTree(manHead, fd);
     close(fd);
 
-    //success message
-    
+    //free some pointers that we are done with   
     free(commit);
     free(manifest);
     freeAvl(commitHead);
     freeAvl(manHead);
 
+    //write success of manifest to client
     write(socket, "SucD", 4);
+    //send manifest to client
     sendFile(socket, manpath);
-    /*manifest = stringFromFile(manpath);
-    char* sendMani = messageHandler(manifest);
-    write(socket, sendMani, strlen(sendMani));*/
     
+    //wait for successful reception of manifest message
     read(socket, succ, 4);
+    //destroy mutex and inform server stdout of the push and terminate
     pthread_mutex_unlock(&(found->mutex));
     printf("Successfully received client's push\n");
     return;
@@ -547,44 +530,53 @@ void* performCheckout(int socket, void* arg){
 
 void* performRollback(int socket, void* arg){
     node** head = &(((data*) arg)->head);
+    //read project name and length
     int projNameLen = readSizeClient(socket);
     char* projName = readNClient(socket, projNameLen);
-
+    //check if project exists
     node* found = findNode(*head, projName);
     if(found == NULL){
+        //if it doenst exist, terminate
         printf("Cannot find project with given name");
         free(projName);
         write(socket, "fail", 4);
         return;
     }
+    //send success message to client and lock mutex
     else write(socket, "succ", 4);
+    pthread_mutex_lock(&(found->mutex));
 
+    //get version number to rollback to from the client
     int verNumStringLen = readSizeClient(socket);
     char* verNumString = readNClient(socket, verNumStringLen);
     char projVerPath[projNameLen + verNumStringLen + 11];
     sprintf(projVerPath, "%s/.v%s.tar.gz", projName, verNumString);
-
+    //see if version number exists on the server side
     int tarFile = open(projVerPath, O_RDONLY);
+    //if it does inform client that we can continue
     if(tarFile > 0) write(socket, "Succ", 4);
     else{
+        //if it does exist we tell the client that verison number is not acceptable and we terminate
         write(socket, "fail", 4);
+        pthread_mutex_unlock(&(found->mutex));
         free(projName);
         free(verNumString);
         return;
     }
     close(tarFile);
-
+    //we move that tarfile out of the project path into the server's current working directory
     int projVerPathLen = strlen(projVerPath); 
     char syscmd[16+projNameLen + projVerPathLen];
     sprintf(syscmd, "mv %s .", projVerPath);
     system(syscmd);
+    //we remove the current project directory
     sprintf(syscmd, "rm -r %s", projName);
     system(syscmd);
-    //sprintf(syscmd, "mv %s %s", projVerPath, projName);
+    //we untar the version of the project
     sprintf(syscmd, "tar -xzvf %s", projVerPath+projNameLen+1);
     system(syscmd);
     remove(projVerPath+projNameLen+1);
-
+    //we move the project to a projectName directory so that the project directory exists with the old version inside
     sprintf(syscmd, "mv %s/.v%s .", projName, verNumString);
     system(syscmd);
     sprintf(syscmd, "rm -r %s", projName);
@@ -592,6 +584,7 @@ void* performRollback(int socket, void* arg){
     sprintf(syscmd, "mv .v%s %s", verNumString, projName);
     system(syscmd);
     
+    //write a success message to server stdout and client
     write(socket, "succ", 4);
     printf("Succesful rollback\n");
     return;
@@ -641,24 +634,30 @@ int createProject(int socket, char* name){
 }
 
 
+//recursive destroy directory function to avoid system call
 int recDest(char* path){
+    //open the directory and start deleting recursively if it can be opened
     DIR* dir = opendir(path);
     int len = strlen(path);
     if(dir){
+        //read through the directory entries
         struct dirent* entry;
         while((entry =readdir(dir))){
             char* newPath; 
             int newLen;
+            //skip the . and .. directories
             if(!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, "..")) continue;
             newLen = len + strlen(entry->d_name) + 2;
             newPath = malloc(newLen); bzero(newPath, sizeof(newLen));
             strcpy(newPath, path);
             strcat(newPath, "/");
             strcat(newPath, entry->d_name);
+            //if the entry is a directory, recurse on it
             if(entry->d_type == DT_DIR){
                 printf("Deleting folder: %s\n", newPath);
                 recDest(newPath);
             }
+            //if the entry is a file delete it
             else if(entry->d_type == DT_REG){
                 printf("Deleting file: %s\n", newPath);
                 remove(newPath);
@@ -666,6 +665,7 @@ int recDest(char* path){
             free(newPath);
         }
     }
+    //close the directory and remove the now empty directory
     closedir(dir);
     int check = rmdir(path);
     printf("rmDir checl: %d\n", check);
