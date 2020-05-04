@@ -15,7 +15,7 @@ int height(avlNode* head){
     return (head==NULL)? 0 : head->height;
 }
 
-//mallocs new node and sets word and frequency values
+//mallocs new node and sets initial values
 avlNode* makeNode(char* ver, char* path, char* code){
     avlNode* newNode = (avlNode*) malloc(sizeof(avlNode));
     newNode->ver = ver;
@@ -110,7 +110,7 @@ avlNode* insert(avlNode* node, char* ver, char* path, char* code){
     return node;
 }
 
-//Free the AVL tokens, bit strings, and each node, since all of them were malloc'd
+//Free the AVL Nodes (note that no char* were malloc'd, they pointed to already malloc'd strings)
 void freeAvl(avlNode* head){
     avlNode* l = head->left;
     avlNode* r = head->right;
@@ -119,34 +119,6 @@ void freeAvl(avlNode* head){
     if(r != NULL) freeAvl(r);
 }
 
-/*
-//Function that prints tree sideways. Used only for testing
-void print2DTree(avlNode *root, int space) 
-{ 
-    // Base case 
-    if (root == NULL) 
-        return; 
-  
-    // Increase distance between levels 
-    space += 10; 
-  
-    // Process right child first 
-    print2DTree(root->right, space); 
-  
-    // Print current node after space 
-    // count 
-    printf("\n");
-    int i; 
-    for (i = 10; i < space; i++) 
-        printf(" ");
-    if(strcmp(" ", root->string) == 0) printf("[space]%d\n",root->val);
-    else if(strcmp("\n", root->string) == 0) printf("[\\n]%d\n",root->val);
-    else if(strcmp("\r", root->string) == 0) printf("[\\r]%d\n",root->val);
-    else printf("%s%d\n", root->string, root->val); 
-  
-    // Process left child 
-    print2DTree(root->left, space); 
-}*/
 
 //Finds the AVLNode that contains token, and returns it in selectedNode. Returns 0 if successful and negative number otherwise
 int findAVLNode(avlNode** selectedNode, avlNode* head, char* token){

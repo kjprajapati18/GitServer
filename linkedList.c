@@ -14,6 +14,8 @@
 
 #include "linkedList.h"
 
+//Standard add mutex Node to the end of the list
+//Init mutex and project name
 node* addNode(node* head, char* name){
     node* newNode = malloc(sizeof(node));
     newNode->proj = malloc(sizeof(char) * (strlen(name)+1));
@@ -34,6 +36,8 @@ node* addNode(node* head, char* name){
     return head;
 }
 
+//Standard remove mutex Node from LL
+//free stuff and destroy mutex
 node* removeNode(node* head, char* name){
     node *ptr = head, *prev = NULL;
     
@@ -60,6 +64,7 @@ node* removeNode(node* head, char* name){
     return head;
 }
 
+//Standard search LL by project Name
 node* findNode(node* head, char* name){
     node* ptr = head;
     while(ptr != NULL && strcmp(ptr->proj, name)){
@@ -68,21 +73,29 @@ node* findNode(node* head, char* name){
     return ptr;
 }
 
+//On server start-up, fill mutex LL with current projects
 node* fillLL(node* head){
+    //Open server directory
     char path[3] = "./";
     DIR* dir = opendir(path);
     if(dir){
+        //Skip the . and .. directories
         struct dirent* entry;
         readdir(dir);
         readdir(dir);
         while((entry =readdir(dir))){
+            //Skip anything that isn't a directory
             if(entry->d_type != DT_DIR) continue;
+
+            //Create the manifest path and try to open it
             char* newPath; 
             int newLen;
             newLen = strlen(entry->d_name) + 10;
             newPath = malloc(newLen); bzero(newPath, sizeof(newLen));
             strcpy(newPath, entry->d_name);
             strcat(newPath, "/.Manifest");
+
+            //If we can open the .Manifest, add the project name to the list of mutexes
             int file = open(newPath, O_RDWR);
             if(file > 0){
                 head = addNode(head, entry->d_name);
@@ -91,11 +104,12 @@ node* fillLL(node* head){
             free(newPath);
         }
     }
-    
+    //Close and return head
     closedir(dir);
     return head;
 }
 
+//Standard add Node to end of LL
 threadList* addThreadNode(threadList* head, pthread_t thread){
     threadList* newNode = malloc(sizeof(threadList));
     newNode->thread = thread;
@@ -114,6 +128,7 @@ threadList* addThreadNode(threadList* head, pthread_t thread){
     return head;
 }
 
+//Standard remove Node from a LL
 int removeThreadNode(threadList** head, pthread_t thread){
 
     threadList *ptr = *head, *prev = NULL;
@@ -137,7 +152,7 @@ int removeThreadNode(threadList** head, pthread_t thread){
 
 }
 
-
+//Standard print LL
 void printLL(node* head){
     node* ptr = head;
     while(ptr!=NULL){
@@ -147,7 +162,8 @@ void printLL(node* head){
     printf("NULL\n");
 }
 
-
+//Called after SIG INT
+//join all existing threads in threadList and free cuz we are closing server
 void joinAll(threadList* head){
     
     while(head != NULL){
@@ -158,6 +174,7 @@ void joinAll(threadList* head){
     }
 }
 
+//Standard free LL with an extra mutex destroy
 void freeMutexList(node* head){
     while(head != NULL){
         node* temp = head->next;
