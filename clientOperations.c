@@ -774,7 +774,7 @@ int performUpgrade(int sockfd, char** argv, char* updatePath){
     free(tarFilePath);
     //write success to the server
     write(sockfd, "Succ", 4);
-    printf("Wrote Files\n");
+    printf("Upgraded local copy of project successfully\n");
     //remove update file
     remove(updatePath);
     free(projName);
