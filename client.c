@@ -13,20 +13,20 @@
 #include <sys/select.h>
 #include <signal.h>
 
-#include "../clientOperations.h"
-#include "../sharedFunctions.h"
-#include "../avl.h"
+#include "clientOperations.h"
+#include "sharedFunctions.h"
+#include "avl.h"
 
 /* TODO LIST:::
-    Create .h and .c files
-    Move the argc checks to argCheck instead of the switch cases.
-    Create a function for generating filePath given proj name && file
-    Create a function that returns 2 .Manifest files (SHARED FUNCTIONS)
-        Use in update (clientside) && commit(serverside) 
-    
     REMEMBER THAT WHEN WE SUBMIT, SERVER AND CLIENT HAVE TO BE IN THE SAME DIRECTORY
         This might change how things compile. Makefile needs to be changed to reflect new client/server.c paths
         We also may need to change the #include headers
+
+    COMMENT AND CLEAN UP PRINT STATEMENTS
+    WTFTest
+    testplan.txt
+    testcases.txt
+    Finish up readme.pdf
 */
 
 int sockfd;

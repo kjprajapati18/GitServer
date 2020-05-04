@@ -14,10 +14,10 @@
 #include <sys/select.h>
 #include <openssl/md5.h>
 
-#include "../linkedList.h"
-#include "../avl.h"
-#include "../serverOperations.h"
-#include "../sharedFunctions.h"
+#include "linkedList.h"
+#include "avl.h"
+#include "serverOperations.h"
+#include "sharedFunctions.h"
 
 
 /*  

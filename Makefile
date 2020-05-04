@@ -1,6 +1,6 @@
-all: sharedFunctions.o avl.o serverOperations.o linkedList.o
-	gcc -o client/WTF client/client.c sharedFunctions.o avl.o clientOperations.o -lssl -lcrypto
-	gcc -o server/WTFserver server/server.c sharedFunctions.o avl.o serverOperations.o linkedList.o -pthread -lssl -lcrypto
+all: client.c server.c sharedFunctions.o avl.o serverOperations.o linkedList.o clientOperations.o
+	gcc -o client/WTF client.c sharedFunctions.o avl.o clientOperations.o -lssl -lcrypto
+	gcc -o server/WTFserver server.c sharedFunctions.o avl.o serverOperations.o linkedList.o -pthread -lssl -lcrypto
 
 sharedFunctions.o: sharedFunctions.c
 	gcc -c sharedFunctions.c -lssl -lcrypto
@@ -22,5 +22,6 @@ clean: avl.o sharedFunctions.o serverOperations.o clientOperations.o linkedList.
 	rm avl.o
 	rm serverOperations.o
 	rm linkedList.o
+	rm clientOperations.o
 	rm client/WTF
 	rm server/WTFserver
