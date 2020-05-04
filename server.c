@@ -37,6 +37,7 @@ int main(int argc, char* argv[]){
     //Should only open with port #
     if(argc != 2) error("Fatal Error: Please enter 1 number as the argument (port)\n");
 
+    //Set up for server creation && signal handlers && remove buffer from stdout
     signal(SIGINT, interruptHandler);
     setbuf(stdout, NULL);
     int newsockfd;
@@ -48,14 +49,14 @@ int main(int argc, char* argv[]){
     struct sockaddr_in servaddr;
     struct sockaddr_in cliaddr;
 
+    //Init the mutex of mutexlist and mutex of threadList
     pthread_mutex_init(&headLock, NULL);
     pthread_mutex_init(&threadListLock, NULL);
-    //destroy atexit()?
 
     //socket creation
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if(sockfd == -1){
-        printf("socket could not be made \n");
+        printf("Socket could not be made \n");
         exit(0);
     }
     else printf("Socket created \n");
@@ -72,7 +73,7 @@ int main(int argc, char* argv[]){
     servlen = sizeof(servaddr);
     //bind socket and ip
     if(bind(sockfd, (struct sockaddr *) &servaddr, servlen) != 0){
-        printf("socket bind failed\n");
+        printf("Socket bind failed. Please try again or choose a different port\n");
         exit(0);
     }
     else printf("Socket binded\n");
@@ -90,64 +91,64 @@ int main(int argc, char* argv[]){
     }
     else printf("server listening\n");
 
+    //Initialize for structs for accept
     clilen = sizeof(cliaddr);
+    //info struct will hold all data we want to pass into thread
     data* info = (data*) malloc(sizeof(data));
     info->head = head;
     info->threadHead = NULL;
+    printf("Server is ready to accept clients!\n");
+
     while(1){
-        //accept packets from clients
-        
+        //accept the client    
         newsockfd = accept(sockfd, (struct sockaddr*) &cliaddr, &clilen);
         if(killProgram){
+            //If we sig INT, then we should stop accepting people.
+            //Signal handler closes socket so it doesn't get stuck on accept
             break;
         }
 
+        //Couldn't accept
         if(newsockfd < 0){
-            printf("server could not accept a client\n");
+            printf("Server could not accept a client\n");
             continue;
         }
 
-        //Get client IP
+        //Get client IP and print that we accepted
         struct sockaddr_in* pV4Addr = (struct sockaddr_in*)&cliaddr;
         struct in_addr ipAddr = pV4Addr->sin_addr;
         char clientIP[INET_ADDRSTRLEN];
         inet_ntop(AF_INET, &ipAddr, clientIP, INET_ADDRSTRLEN);
-
         printf("Server accepted client with IP %s\n", clientIP);
         
-        //thread part  //chatting between client and server
+        //Intialize thread_id and set info to have socket (to pass into thread)
         pthread_t thread_id;
         info->socketfd = newsockfd;
         
         //Handle sending in IP. This will get freed by the thread that takes it
         info->clientIP = (char*) malloc((strlen(clientIP)+1) * sizeof(char));
         strcpy(info->clientIP, clientIP);
-        //printf("%s\n", info->clientIP);
+        
+        //Attempt to create the thread
         if(pthread_create(&thread_id, NULL, switchCase, info) != 0){
-            error("thread creation error");
+            printf("Could not create thread for client. Disconnecting from client...\n");
         } else {
+            //If we can create, add to threadList so we can properly free on signals
             pthread_mutex_lock(&threadListLock);
             info->threadHead = addThreadNode(info->threadHead, thread_id);
             pthread_mutex_unlock(&threadListLock);
         }
     }
-    
-    //Code below prints out # of thread Nodes.
-    /*threadList* ptr = threadHead;
-    int j = 0;
-    for(j = 0; ptr != NULL; j++){
-        printf("%d -> ", j);
-        ptr = ptr->next;
-    }
-    printf("NULL\n");*/
 
     //Join all the threads and frees the threadID list
     joinAll(info->threadHead);
-    //Free list of mutexes!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    
+    //Free all mutexes
     pthread_mutex_destroy(&headLock);
     pthread_mutex_destroy(&threadListLock);
     freeMutexList(info->head);
     
+    //Free the info struct and print that we've successfully clean everything
     free(info);
     printf("Successfully closed all sockets and threads!\n");
     
@@ -155,13 +156,14 @@ int main(int argc, char* argv[]){
     return 0;
 }
 
+//Function that will be performed on a thread
 void* switchCase(void* arg){
-    //RECREATE ALL PERFORM FUNCTIONS TO TAKE IN ARGS CUZ SOCKET CHANGES
-    //AND WE PASS SOCKET AFTER CHECKIGN THROUGH THE SWITCH CASE
+    //First type-cast. Then store all needed info on the stack
     data* info = (data*) arg;
-    int newsockfd = info->socketfd; //PASS THIS IN
+    int newsockfd = info->socketfd;
     char* clientIP = info->clientIP;
 
+    //Send to client that they are connected to the server
     int bytes;
     char cmd[3];
     bzero(cmd, 3);
@@ -173,9 +175,8 @@ void* switchCase(void* arg){
         return NULL;
     }
 
-    printf("Waiting for command..\n");
+    //Read command from the client
     bytes = read(newsockfd, cmd, 3);
-    
     if (bytes < 0){
         printf("Could not read from client\n");
         close(newsockfd);
@@ -184,19 +185,18 @@ void* switchCase(void* arg){
     }
     
     int mode = atoi(cmd);
-    printf("Chosen Command: %d\n", mode);
-
+    //Perform a different function based on this command
     switch(mode){
         case create:
             performCreate(newsockfd, arg);
-            printLL(info->head);
             break;
         case destroy:
             performDestroy(newsockfd, arg);
-            printLL(info->head);
             break;
         case currentversion:
         case update:
+            //Both update and currentVersion require only a manifest
+            //Everything else is server-sided
             performCurVer(newsockfd, arg);
             break;
         case upgrade:
@@ -218,18 +218,22 @@ void* switchCase(void* arg){
             performRollback(newsockfd, arg);
             break;
     }
+    //Close the fd to the client and free their IP
     close(newsockfd);
     free(clientIP);
-    //If the server is shutting down, don't perform these lines because we have to join the threads
+
+    //If the server is shutting down, don't perform these lines because we are already trying to join these threads
     if(!killProgram){
         pthread_mutex_lock(&threadListLock);
         removeThreadNode(&(info->threadHead), pthread_self());
         pthread_mutex_unlock(&threadListLock);
         pthread_detach(pthread_self());
     }
+    //Print that we are disconnected from the client
     printf("Disconnected from client\n");
 }
 
+//If SIGINT signal is received, then set killProgram to true, and close the accept socket
 void interruptHandler(int sig){
     killProgram = 1;
     close(sockfd);
