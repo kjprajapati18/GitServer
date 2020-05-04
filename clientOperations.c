@@ -518,6 +518,7 @@ int performUpdate(int sockfd, char** argv){
     close(conflictfd);
     if(conflictSize == 0){
         remove(conflictPath);
+        printf("Update was successful!\n");
     } else {
         remove(updatePath);
         printf("Conflicts were found and must be resolved before the project can be upgraded\n");
