@@ -228,15 +228,17 @@ avlNode* commitChanges(avlNode* commitHead, avlNode* manhead){
             avlNode* found;
             findAVLNode(&found, manhead, commitHead->path);
             (found->verNum)++;
-            free(found->ver);
-            char* verstring = (char*) malloc(12);
-            sprintf(verstring, "%d", found->verNum);
-            found->ver = verstring;
-            char* code = commitHead->code;
+            //free(found->ver);
+            // char* verstring = (char*) malloc(12);
+            // sprintf(verstring, "%d", found->verNum);
+            // found->ver = verstring;
+            found->code = commitHead->code;
             break;}
-        case 'A':
-            manhead = insert(manhead, "0", commitHead->path, commitHead->code);
-            break;
+        case 'A':{
+            char* zero = (char*) malloc(3);
+            sprintf(zero, "-2");
+            manhead = insert(manhead, zero, commitHead->path, commitHead->code);
+            break;}
     }
     manhead = commitChanges(commitHead->right, manhead);
     return manhead;
@@ -247,12 +249,18 @@ void writeTree(avlNode* head, int fd){
     if(head == NULL) return;
     writeTree(head->left, fd);
     if(head->verNum != -1){
-        writeString(fd, head->ver);
+        char* verstring = (char*) malloc(12);
+        if(head->verNum == -2) sprintf(verstring, "%d", 0);
+        else sprintf(verstring, "%d", head->verNum);
+        writeString(fd, verstring);
         writeString(fd, " ");
         writeString(fd, head->path);
         writeString(fd, " ");
         writeString(fd, head->code);
         writeString(fd, "\n");
+
+        free(verstring);
+        if(!strcmp(head->ver, "-2")) free(head->ver);
     }
     writeTree(head->right, fd);
 }

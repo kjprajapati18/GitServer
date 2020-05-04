@@ -801,6 +801,7 @@ int performPush(int sockfd, char**argv, char* commitPath){
     printf("commitmsg: %s\n", commitmsg);
     write(sockfd, commitmsg, strlen(commitmsg));
     free(commitmsg);
+
     //check success of commit compare
     char succ[5]; succ[4] = '\0';
     read(sockfd, succ, 4);
@@ -808,15 +809,25 @@ int performPush(int sockfd, char**argv, char* commitPath){
         printf("commits did not match up\n");
         return -1;
     }
-    int i = 0, numAddFiles = 0, numDelFiles = 0;
-    char* addFile = (char*) malloc(1); addFile[0] = '\0';
+
+    int i = 0, numAddFiles = 0, numDelFiles = 0, projNameLen = strlen(argv[2]);
+    
+    //Setup for tarring
+    int tarList = open("tarList.txt", O_CREAT | O_WRONLY, 00600);
+    char* tarCommand = (char*) malloc(38+projNameLen);
+    char tarPath[projNameLen+12];
+    sprintf(tarPath, "%sPush.tar.gz", argv[2]);
+    sprintf(tarCommand, "tar -czvf %s -T tarList.txt", tarPath);
+
+    //Setup for list of to-be-deleted files
     char* delFile = (char*) malloc(1); delFile[0] = '\0';
-    int addTrack = 0, delTrack = 0;
+    int addTrack = strlen(tarCommand), delTrack = 0;
     for(i = 0; i < strlen(commit); i++){
         while(commit[i] >= '0' && commit[i] <= '9') i++;
+        
         switch(commit[i]){
             case 'D':{
-                int i = i+1;
+                i = i+2;
                 int end = i;
                 while(commit[end] != ' ') end++;
                 char filename[end-i+1]; bzero(filename, end-i+1);
@@ -830,8 +841,7 @@ int performPush(int sockfd, char**argv, char* commitPath){
                 free(delFile);
                 free(fileAndSize);
                 delFile = temp;
-                break;
-            }
+                break;}
             case 'A':
             case 'M':{
                 i = i+2;
@@ -840,14 +850,25 @@ int performPush(int sockfd, char**argv, char* commitPath){
                 char filename[end-i+1]; bzero(filename, end-i+1);
                 strncpy(filename, &commit[i], end-i);
                 filename[end-i] = '\0';
-                numAddFiles++;
+                numDelFiles++;
                 char* fileAndSize = messageHandler(filename);
-                addTrack+= strlen(fileAndSize);
-                char* temp = (char*) malloc(addTrack+1);
-                sprintf(temp, "%s%s", addFile, fileAndSize);
-                free(addFile);
+                delTrack+= strlen(fileAndSize);
+                char* temp = (char*) malloc(delTrack+1);
+                sprintf(temp, "%s%s", delFile, fileAndSize);
+                free(delFile);
                 free(fileAndSize);
-                addFile = temp;
+                delFile = temp;
+
+                numAddFiles++;
+                writeString(tarList, filename);
+                writeString(tarList, "\n");
+                /*
+                addTrack+= strlen(filename)+1;
+                temp = (char*) malloc(addTrack+1);
+                sprintf(temp, "%s %s", tarCommand, filename);
+                free(tarCommand);
+                tarCommand = temp;
+                /*
                 char* file = stringFromFile(filename);
                 char* fileContandSize = messageHandler(file);
                 addTrack+= strlen(fileContandSize);
@@ -855,22 +876,43 @@ int performPush(int sockfd, char**argv, char* commitPath){
                 sprintf(temp, "%s%s", addFile, fileContandSize);
                 free(addFile);
                 free(fileContandSize);
-                addFile = temp;
+                addFile = temp;*/
                 break;
             }
             default: break;
         }
+
         while(commit[i] != '\n') i++;
     }
+
     //delfile is a list of all files to delete
     char* temp = malloc(delTrack+2+11);
     sprintf(temp, "%d:%s", numDelFiles, delFile);
     free(delFile);
     delFile = temp;
-    write(sockfd, delFile, strlen(delFile));
+    char number[12]; sprintf(number, "%d", numDelFiles);
+    write(sockfd, delFile, delTrack+1+strlen(number));
     free(delFile);
+
     read(sockfd, succ, 4);
     printf("Del Succ?: %s\n", succ);
+
+    //Tar the add and modify files and send it over
+    //We already initialized the command, and we've been adding to the end of it as we read
+    close(tarList);
+
+    if(numAddFiles > 0){
+        system(tarCommand);
+        write(sockfd, "succ", 4);
+        sendTarFile(sockfd, tarPath);
+        remove(tarPath);
+    } else {
+        write(sockfd, "fail", 4);
+    }
+    remove("tarList.txt");
+
+
+    /*
     //addfile is a list of all files and their contents
     char numTemp[12];
     sprintf(numTemp, "%d", numAddFiles);
@@ -882,17 +924,24 @@ int performPush(int sockfd, char**argv, char* commitPath){
     write(sockfd, addFile, addTrack+numLen+1);
     free(addFile);
     read(sockfd, succ, 4);
-    printf("Add Succ?: %s\n", succ);
+    printf("Add Succ?: %s\n", succ);*/
+
     read(sockfd, succ, 4);
+    perror("Test");
     printf("Final manifest success?: %s\n", succ);
     remove(commitPath);
-    char manPath[strlen(argv[2]) + 11];
-    sprintf(manPath, "%s/.Manifest", argv[2]);
+
+
+    char* manPath = readNClient(sockfd, readSizeClient(sockfd));
     remove(manPath);
     char* manifest = readNClient(sockfd, readSizeClient(sockfd));
     int manfd = open(manPath, O_CREAT|O_WRONLY, 00600);
     writeString(manfd, manifest);
     write(sockfd, "succ", 4);
+    
+    free(tarCommand);
+    free(manPath);
+    free(manifest);
     return 0;
 }
 

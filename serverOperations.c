@@ -202,8 +202,10 @@ void* performUpgradeServer(int socket, void* arg){
         char* file = stringFromFile(filepath);
         char* fileToSend = messageHandler(file);
         char* fileNameToSend = messageHandler(filepath);
-        char* thing = malloc(strlen(fileToSend) + strlen(fileNameToSend)+1);
+        int thingLen = strlen(fileToSend)+strlen(fileNameToSend);
+        char* thing = malloc(thingLen+1);
         sprintf(thing, "%s%s", fileNameToSend, fileToSend);
+        write(socket, thing, thingLen);
         printf("Sent:\t%s\n", thing);
         free(fileToSend);
         free(filepath);
@@ -218,13 +220,16 @@ void* performUpgradeServer(int socket, void* arg){
 
 
 void* performPushServer(int socket, void* arg, char* ip){
+    
     char* confirmation = readNClient(socket, readSizeClient(socket));
+
     if(!strcmp(confirmation, "Commit")){
         printf("There is no commit file. \n");
         free(confirmation);
         return;
     }
-    char* projName = readNClient(socket, readSizeClient(socket));
+    int projNameLen = readSizeClient(socket);
+    char* projName = readNClient(socket, projNameLen);
     printf("%s\n", projName);
     node* found = findNode(((data*) arg)->head, projName);
     //if found is null do something
@@ -237,9 +242,9 @@ void* performPushServer(int socket, void* arg, char* ip){
     }
     pthread_mutex_lock(&(found->mutex));
     write(socket, "Succ", 4);
-    char commitPath[strlen(projName) + strlen(ip)+ 10];
-    char manpath[strlen(projName) + 11];
-    char hispath[strlen(projName) + 10];
+    char commitPath[projNameLen + strlen(ip)+ 10];
+    char manpath[projNameLen + 13];
+    char hispath[projNameLen + 10];
     sprintf(hispath, "%s/.History", projName);
     sprintf(manpath, "%s/.Manifest", projName);
     sprintf(commitPath, "%s/.Commit-%s", projName, ip);
@@ -256,7 +261,7 @@ void* performPushServer(int socket, void* arg, char* ip){
     }
     else{
         printf("Commits match up\n");
-        char command[13+strlen(projName)];
+        char command[13+projNameLen];
         sprintf(command, "rm %s/.Commit*", projName);
         system(command);
         write(socket, "Succ", 4);
@@ -268,7 +273,7 @@ void* performPushServer(int socket, void* arg, char* ip){
     commit[index] = '\0';
     int verNum = atoi(commit);
     commit[index] = '\n';
-    char syscmd[24+2*strlen(projName)];
+    char syscmd[24+2*projNameLen];
     sprintf(syscmd, "cp -r %s old%s", projName, projName);
     system(syscmd);
     sprintf(syscmd, "mv old%s %s/.v%d", projName, projName, verNum); 
@@ -278,7 +283,9 @@ void* performPushServer(int socket, void* arg, char* ip){
     writeString(histfd, commit);
     writeString(histfd, "\n");
     close(histfd);
+
     //start deletions
+    printf("Start of deletions\n");
     int numFiles = readSizeClient(socket);
     int i = 0;
     for(i = 0; i< numFiles; i++){
@@ -286,7 +293,21 @@ void* performPushServer(int socket, void* arg, char* ip){
         remove(delPath);
         free(delPath);
     }
+    printf("End of deletions\n");
     write(socket, "Succ", 4);
+
+    char succ[5]; succ[4] = '\0';
+    char* tarFilePath = NULL;
+    read(socket, succ, 4); //We are expecting either succ or fail, depending on tar file
+    if(!strcmp("succ", succ)){
+        tarFilePath = readWriteTarFile(socket);
+        char untarCommand[strlen(tarFilePath)+12];
+        sprintf(untarCommand, "tar -xzvf %s", tarFilePath);
+        system(untarCommand);
+        remove(tarFilePath);
+        free(tarFilePath);
+    }
+    /*
     numFiles = readSizeClient(socket);
     for(i = 0; i < numFiles; i++){
         char* path = readNClient(socket, readSizeClient(socket));
@@ -303,8 +324,10 @@ void* performPushServer(int socket, void* arg, char* ip){
         writeString(addFilefd, fileCont);
         free(path); free(fileCont);
         close(addFilefd);
-    }
-    write(socket, "Succ", 4);
+    }*/
+    //write(socket, "SucE", 4);
+
+
     //manifest creation
     char* manifest = stringFromFile(manpath);
     char* manptr = manifest;
@@ -314,22 +337,29 @@ void* performPushServer(int socket, void* arg, char* ip){
     avlNode* commitHead = fillAvl(&commitptr);
     avlNode* manHead = fillAvl(&manptr);
     manHead = commitChanges(commitHead, manHead); 
+    printf("asdfsdf\n");
     remove(manpath);
+    printf("ManPath: %s", manpath);
     int fd = open(manpath, O_CREAT | O_WRONLY | O_APPEND, 00600);
     char verString[13];
     sprintf(verString, "%d\n", ++verNum);
     writeString(fd, verString);
     writeTree(manHead, fd);
+    close(fd);
+
     //success message
-    write(socket, "Succ", 4);
+    
     free(commit);
     free(manifest);
     freeAvl(commitHead);
     freeAvl(manHead);
-    manifest = stringFromFile(manpath);
+
+    write(socket, "SucD", 4);
+    sendFile(socket, manpath);
+    /*manifest = stringFromFile(manpath);
     char* sendMani = messageHandler(manifest);
-    write(socket, sendMani, strlen(sendMani));
-    char succ[5]; succ[4] = '\0';
+    write(socket, sendMani, strlen(sendMani));*/
+    printf("Waiting for read\n");
     read(socket, succ, 4);
     pthread_mutex_unlock(&(found->mutex));
     return;

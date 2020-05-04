@@ -76,7 +76,8 @@ int sendFile(int sockfd, char* pathName){
         return 1;
     }
 
-    write(sockfd, fileData, start+bytesRead);    
+    write(sockfd, fileData, start+bytesRead); 
+    printf("Sent String: %s\n", fileData);   
     free(fileData);
     return 0;
 }
