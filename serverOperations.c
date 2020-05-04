@@ -253,6 +253,7 @@ void* performUpgradeServer(int socket, void* arg){
 
     //wait for success message from client before terminating thread
     read(socket, succ, 4);
+    printf("Upgrade was successful!\n");
     pthread_mutex_unlock(&(found->mutex));
 }
 
