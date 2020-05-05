@@ -17,6 +17,11 @@ clientOperations.o: clientOperations.c
 linkedList.o: linkedList.c
 	gcc -c linkedList.c -pthread
 
+test: test.c
+	make clean
+	make all
+	gcc -o WTFtest test.c
+
 clean: avl.o sharedFunctions.o serverOperations.o clientOperations.o linkedList.o client/WTF server/WTFserver
 	rm sharedFunctions.o
 	rm avl.o
