@@ -18,32 +18,42 @@
 #include "avl.h"
 
 int performRollback(int ver, char** argv, int sockfd){
+    //Send project name
     char* projName = messageHandler(argv[2]);
     write(sockfd, projName, strlen(projName));
     free(projName);
+
+    //Read if the project was found. Quit if not found
     char succ[5]; succ[4] = '\0';
     read(sockfd, succ, 4);
     if(!strcmp(succ, "Fail")){
         printf("Project not found\n");
         return -1;
     }
+
+    //Send version number to server 
     char* verNumString = messageHandler(argv[3]);
     write(sockfd, verNumString, strlen(verNumString));
     free(verNumString);
+
+    //Read if the version number was valid. Quit and notify user if not
     read(sockfd, succ, 4);
     if(!strcmp(succ, "Fail")){
         printf("Version number not found\n");
         return -1;
     }
+
+    //Read whether the server succeeded. Notify user
     read(sockfd, succ, 4);
-    if(!strcmp(succ, "fail")){
-        printf("Could not rollback to previous version.\n");
-        return -1;
-    }
-    else{
+    if(!strcmp(succ, "succ")){
         printf("Successfully rolled back to version %d\n", ver);
         return 0;
+        
     }
+    //Notify user of fail
+    printf("Could not rollback to previous version.\n");
+    return -1;
+    
 
 }
 

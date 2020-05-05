@@ -573,6 +573,7 @@ void* performRollback(int socket, void* arg){
         pthread_mutex_unlock(&(found->mutex));
         free(projName);
         free(verNumString);
+        printf("Client sent an invalid previous version. Rollback was not performed\n");
         return;
     }
     close(tarFile);
