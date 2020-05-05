@@ -116,7 +116,7 @@ int performAdd(char** argv){
                     free(manPath);
                     free(writefile);
                     close(newfd);
-                    printf("Added file to manifest after removing it prior");
+                    printf("Added file to manifest after removing it prior\n");
                     return 0;
                 }
                 //found file so cannot add duplicate
@@ -153,7 +153,7 @@ int performRemove(char** argv){
     DIR* d = opendir(argv[2]);
     if(!d){
         //without a local copy remove fails and notifies client
-        printf("Project does not exist locally. Cannot remove file from this project manifest");
+        printf("Project does not exist locally. Cannot remove file from this project manifest\n");
         closedir(d);
         return -1;
     }
@@ -341,12 +341,12 @@ command argCheck(int argc, char* arg){
     }
     else if(strcmp(arg, "add") == 0){
         if(argc == 4) mode = add;
-        else printf("Fatal Error: Not enough arguments for this command. Proper usage is: ./WTF add <projectName> <filename>");
+        else printf("Fatal Error: Not enough arguments for this command. Proper usage is: ./WTF add <projectName> <filename>\n");
     
     }
     else if(strcmp(arg, "remove") == 0){
         if(argc == 4) mode = rmv;
-        else printf("Fatal Error: Not enough arguments for this command. Proper usage is: ./WTF remove <projectName> <fileName>");
+        else printf("Fatal Error: Not enough arguments for this command. Proper usage is: ./WTF remove <projectName> <fileName>\n");
 
     }
     else if(strcmp(arg, "currentversion") == 0){
@@ -580,6 +580,8 @@ int performCommit(int sockfd, char** argv){
         sendFail(sockfd);
         return 1;
     }
+    //Nothing is wrong with the client, send success
+    write(sockfd, "4:succ", 6);
 
     //Server will write 1 of 3 things:
     //      fail-> Cannot read version number from .Manifest    (fail)
@@ -755,7 +757,7 @@ int performUpgrade(int sockfd, char** argv, char* updatePath){
                 track+= strlen(fileAndSize);
                 char* temp = (char*) malloc(track + 2);
                 sprintf(temp, "%s%s", addFile, fileAndSize);
-                printf("%s\n", temp);
+                
                 free(addFile);
                 free(fileAndSize);
                 addFile = temp;
@@ -813,10 +815,9 @@ int fileCreator(char* path){
 
 int performPush(int sockfd, char**argv, char* commitPath){
     //write the commit file to the server
-    printf("commitpath: %s\n", commitPath);
     char* commit = stringFromFile(commitPath);
     char* commitmsg = messageHandler(commit);
-    printf("commitmsg: %s\n", commitmsg);
+    
     write(sockfd, commitmsg, strlen(commitmsg));
     free(commitmsg);
 
