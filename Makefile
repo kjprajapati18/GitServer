@@ -22,6 +22,19 @@ test: test.c
 	make all
 	gcc -o WTFtest test.c
 
+cleantest: 
+	rm -r testProject
+	rm diffResults.txt
+	rm clientStdOut.txt
+	rm serverStdOut.txt
+	rm client/.configure
+	rm -r client/destroyThis
+	rm -r client/testProject
+	rm -r .clientResult
+	rm -r .serverResult
+	rm .ClientResult.txt
+	rm .ServerResult.txt
+
 clean: avl.o sharedFunctions.o serverOperations.o clientOperations.o linkedList.o client/WTF server/WTFserver
 	rm sharedFunctions.o
 	rm avl.o

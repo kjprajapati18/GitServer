@@ -11,11 +11,12 @@ void makeClientResult();
 void makeServerResult();
 void makeResultDirectory();
 int writeString(int fd, char* string);
+void compareFiles();
 
 int main(int argc, char* argv[]){
-    /*makeClientResult();
+    makeClientResult();
     makeServerResult();
-    makeResultDirectory();*/
+    makeResultDirectory();
     
     int pid = fork();
     if(pid == 0){
@@ -48,6 +49,17 @@ int main(int argc, char* argv[]){
         system("cd client; ./WTF checkout testProject >> ../clientStdOut.txt");
         kill(pid, SIGINT);
         wait();
+        sleep(2);
+        compareFiles();
+        int diffd = open("diffResults.txt", O_RDONLY);
+        int size = lseek(diffd, 0, SEEK_END);
+        close(diffd);
+        if(size == 0){
+            printf("Success, there are no differences between expected and generated results!\n");
+        }
+        else{
+            printf("There were differences between expected and generated results. Refer to diffResults.txt for details\n");
+        }
     }
 }
 
@@ -67,8 +79,29 @@ void makeServerResult(){
 }
 
 void makeResultDirectory(){
-    mkdir(".clientResult");
-    mkdir(".clientResult/destroyThisResult");
+    mkdir(".clientResult", 0777);
+    mkdir(".clientResult/destroyThisResult", 0777);
+    mkdir(".clientResult/testProjectResult", 0777);
+    mkdir(".serverResult", 0777);
+    mkdir(".serverResult/testProjectResult", 0777);
+    system("touch .clientResult/destroyThisResult/.Manifest");
+    system("echo \"0\" > .clientResult/destroyThisResult/.Manifest");
+    system("touch .clientResult/testProjectResult/.Manifest");
+    char* mani = "1\n0 ./testProject/removeThis.txt d41d8cd98f00b204e9800998ecf8427e\n0 ./testProject/test.txt 9b9af6945c95f1aa302a61acf75c9bd6\n";
+    int fd = open(".clientResult/testProjectResult/.Manifest", O_WRONLY);
+    writeString(fd, mani);
+    close(fd);
+    system("touch .clientResult/testProjectResult/removeThis.txt");
+    system("touch .clientResult/testProjectResult/test.txt");
+    system("echo \"abcde\" > .clientResult/testProjectResult/test.txt");
+    system("touch .clientResult/configure");
+    system("echo -n \"localhost\n9998\" > .clientResult/configure");
+    system("touch .serverResult/testProjectResult/.History");
+    char* hist = "0\n0A ./testProject/test.txt 9b9af6945c95f1aa302a61acf75c9bd6\n0A ./testProject/removeThis.txt d41d8cd98f00b204e9800998ecf8427e\n\n";
+    fd = open(".serverResult/testProjectResult/.History", O_WRONLY);
+    writeString(fd, hist);
+    close(fd);
+
 
 }
 
@@ -83,4 +116,13 @@ int writeString(int fd, char* string){
     
     if(status < 0) return 1;
     return 0;
+}
+
+void compareFiles(){
+    system("diff -r .clientResult/destroyThisResult/ client/destroyThis > diffResults.txt");
+    system("diff -r .clientResult/testProjectResult/ client/testProject >> diffResults.txt");
+    system("diff .clientResult/configure client/.configure >> diffResults.txt");
+    system("diff .serverResult/testProjectResult/.History testProject/.History >> diffResults.txt");
+    system("diff .ClientResult.txt clientStdOut.txt >> diffResults.txt");
+    system("diff .ServerResult.txt serverStdOut.txt >> diffResults.txt");
 }
