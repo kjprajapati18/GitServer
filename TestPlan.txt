@@ -1,0 +1,109 @@
+﻿TestPlan
+This test is meant to be done sequentially
+
+
+1. Starting the server and killing the server without clients- the server starts and listens for a connection. Upon SIGINT, it closes all sockets and threads and informs the user. If the server cannot socket bind to the port, that is a kernel issue that we personally cannot resolve; we can simply rerun the command to try again. 
+        >cd server
+        >./WTFserver 9998
+        >^C
+2. Client connecting without .configure- client will fail and inform user of Fatal Error
+        >cd client
+        >./WTF create AsstLast
+3. Client running configure - client will create configure file with hostname and port given
+        >./WTF configure localhost 9998
+4. Client running a server command when server is not running - will try to connect every 3 seconds to server based on .configure profile. If SIGINT, client will close socket bind and inform user. Otherwise, client will connect when the server becomes available and execute. 
+        Terminal 1*                                     Terminal 2*
+        >./WTF create AsstLast        
+        >^C
+        >./WTF create AsstLast
+                                                        >cd server
+                                                        >./WTFserver 9998
+5. Client running a command without correct parameters - will inform user of wrong parameters and correct usage
+        >./WTF update AsstLast gradeFaster.txt
+        >./WTF grade AsstLast
+
+6. Client running add, a purely client side command- will inform user if file does not exist, if file cannot be hashed, if project does not exist locally or there is no manifest in the project. Otherwise it will add the file to the manifest and put an A next to its version number unless it was previously removed in which case it will be added without an A.
+        >./WTF add AsstLast2 file.txt
+        >./WTF create Project
+        >./WTF add Project test.txt
+        >touch test.txt
+        >echo “abcd” > test.txt
+        >./WTF add Project test.txt
+
+
+From now on we assume the client will successfully connect to a server running on localhost and in the background (using localhost and port 9998 as in the configuration) in order to avoid repetition and to allow us to start testing the server based commands. We know that if a connection cannot be reached, the client will keep trying every 3 seconds and if the server socket bind fails, we can rerun it until the kernel allows.
+
+
+7. Client running create- will inform the user if the project has already been created on the server. Otherwise client will create a directory with the projectName given as a repository and in it will be a fresh manifest on both client and server side. If the client has a folder with the project’s name, the new Manifest is added to the folder. 
+        Terminal 1                                      Terminal 2
+        >./WTF create Asst3
+        > ls -a ./Asst3/*
+                                                         >ls -a ./Asst3/*
+        > mkdir TestProject
+        > touch TestProject/test1.txt
+        >./WTF create TestProject
+        >ls -a ./TestProject/*
+                                                        >ls -a ./Asst3/*
+8. Client running destroy- will inform the user if the project does not exist on the server. Otherwise server will recursively remove the project directory and client and server will output success messages. 
+        Terminal 1                                      Terminal 2
+        >./WTF destroy TestProject                        
+                                                        >ls 
+        >./WTF destroy unMadeProj
+                                                        >ls
+From this point on, it is assumed that the functions fail if the projects have not been created yet on the server and this can be tested very simply
+9. Client running commit/push/remove- will inform the user of the changes made to the client version as long as user is at the most updated version of the project and then creates a .Commit file of those changes (if they exist, will not create a .Commit if not) and sends it to the server. Push will then apply those changes to the server’s version and update the manifest on both client and server as long as a .Commit file exists and matches the server’s .Commit file. Push then removes all other commits. It will also make a compressed tar file of the previous version and update/create a .History file for the project. Commit will ask for an update/upgrade if the client is not caught up to the server. The remove call will remove a file from the manifest (indicated with an R next to its version number) if it was not only added locally (in which case it will delete the file entirely from the manifest). If a file was already removed or if the file cannot be found in the manifest, nothing is done and the user is informed.
+        Terminal 1                                      Terminal 2
+        >./WTF push Asst3
+        >./WTF commit Asst3
+                                                        >ls -a Asst3/*
+        >touch Asst3/test.txt
+        >echo “abds” > test.txt
+        >touch Asst/test2.txt
+        >./WTF add Asst3 test.txt
+        >./WTF add Asst3 test2.txt
+        >./WTF remove Asst3 test2.txt
+        >./WTF remove Asst3 test2.txt
+        >./WTF add Asst3 test2.txt
+        >./WTF commit Asst3
+        >./WTF push Asst3
+                                                        >ls -a Asst3/*
+                                                        >cat Asst3/.Manifest
+        >./WTF remove Asst3 test2.txt
+        >echo “InterStellar” > test.txt 
+        >./WTF commit Asst3
+        >./WTF push
+                                                        >ls -a Asst3/*
+                                                        >cat Asst3/.Manifest
+
+
+10. Client running rollback/update/upgrade - will rollback the server to another version specified if it exists. Update will compare the changes in manifests between the client and server and output a .Update file of changes to be made to the client if no conflicts exist and if there are conflicts, these are written to a .Conflict file and no .Update is made. These are also printed to the user to inform them of the changes or the conflicts. Then given a proper .Update file, upgrade will apply the changes specified to the files on the local server and update the manifest to match the server. For an empty .Update, an existing .Conflict, or no .Update, upgrade will inform the user which of these problems it is having and terminate. 
+        Terminal 1                                      Terminal 2
+        >./WTF upgrade Asst3
+        >./WTF update Asst3
+        >./WTF upgrade Asst3
+        >./WTF rollback Asst3 1
+                                                        >ls -a Asst3
+        >touch Asst3/conflicttest.txt
+        >./WTF add Asst3 conflicttest.txt
+        >./WTF update Asst3
+        >./WTF upgrade Asst3
+        >./WTF remove Asst3 conflicttest.txt
+        >./WTF update Asst3
+        >./WTF upgrade Asst3
+        >ls -a Asst3/*
+11. Client running currentVersion - will print out a list of all files in the current version of the project and their version numbers as long as the project exists on the server
+        Terminal 1
+        >./WTF currentVersion NotThere
+        >./WTF currentVersion Asst3
+12. Client running history - client will retrieve the .History file made in pushes to the project and print this file for the user to see on the client side. The .history reads like a .commit file with a version number and newline separating each line of changes. 
+        Terminal 1
+        >./WTF history NotThere
+        >./WTF history Asst3
+
+13. Client testing checkout- client retrieves all the files for a project from the server as a tar file and decompresses them to make a directory with the project name and an up to date copy of the project as long as it doesn’t already exist on the client side.
+        Terminal 1
+        >./WTF checkout Asst3
+        >rm -r Asst3
+        >./WTF checkout Asst3
+
+*Terminal 1 is meant to always be in the client working directory while Terminal 2 is always in the server working directory
