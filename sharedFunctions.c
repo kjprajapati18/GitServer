@@ -16,7 +16,7 @@ int readSizeClient(int socket){
     int status = 0;
     int bytesRead = 0;
     char buffer[11];
-    printf("\tAttempting to read size of next message...\n");
+    //printf("\tAttempting to read size of next message...\n");
     do{
         status = read(socket, buffer+bytesRead, 1);
         bytesRead += status;
@@ -29,7 +29,7 @@ int readSizeClient(int socket){
 //Read the next Size bytes from socket
 char* readNClient(int socket, int size){
     char* buffer = malloc(sizeof(char) * (size+1));
-    printf("\tAttempting to read %d bytes...\n", size);
+    //printf("\tAttempting to read %d bytes...\n", size);
     read(socket, buffer, size);
     buffer[size] = '\0';
     return buffer;

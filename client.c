@@ -50,7 +50,7 @@ int main(int argc, char* argv[]){
     
 
     if(strcmp(argv[1], "configure") == 0){
-        if(argc < 4) error("Not enough arguments for configure. Need IP & Port\n");
+        if(argc != 4) error("Invalid number of arguments for configure. Need IP & Port only\n");
         writeConfigureFile(argv[2], argv[3]);
         printf("Successfully created configure file with hostname: %s and port: %s\n", argv[2], argv[3]);
         return 0;
@@ -166,7 +166,7 @@ int main(int argc, char* argv[]){
             char dotfilepath[len+11]; dotfilepath[0] = '\0';
             sprintf(dotfilepath, "%s/.Commit", argv[2]);
             if(open(dotfilepath, O_RDONLY) < 0){
-                printf("No .Commit file detected. Please run commit first");
+                printf("No .Commit file detected. Please run commit first\n");
                 write(sockfd, "6:Commit", 8);
                 return -1;
             }
@@ -175,7 +175,7 @@ int main(int argc, char* argv[]){
             write(sockfd, projName, strlen(projName));
             char succ[5]; succ[4] = '\0';
             read(sockfd, succ, 4);
-            printf("Succ: %s\n", succ);
+            
             if(!strcmp(succ, "fail")){
                 printf("Project does not exist.\n");
                 return -1;
@@ -186,14 +186,15 @@ int main(int argc, char* argv[]){
             performCreate(sockfd, argv);
             break;}
         case destroy:{
+            //Send project Name
             char sendFile[12+strlen(argv[2])];
             sprintf(sendFile, "%d:%s", strlen(argv[2]), argv[2]);
             write(sockfd, sendFile, strlen(sendFile));
+            //Read feedback message
             bytes = readSizeClient(sockfd);
             char returnMsg[bytes + 1]; bzero(returnMsg, bytes+1);
             read(sockfd, returnMsg, bytes);
             printf("%s\n", returnMsg);
-            //printf("%s\n", hash("hashtest.txt"));
             break;}
         case currentversion:{
             //Send project Name over

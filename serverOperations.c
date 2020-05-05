@@ -418,6 +418,15 @@ void* performCommit(int socket, void* arg, char* clientIP){
     pthread_mutex_lock(&headLock);
     node* found = findNode(*head, projName);
     pthread_mutex_unlock(&headLock);
+    
+    char* clientProjectCheck = readNClient(socket, readSizeClient(socket)); 
+    if(!strcmp(clientProjectCheck, "fail")){
+        printf("Client could not complete commit\n");
+        free(projName);
+        free(clientProjectCheck);
+        return NULL;
+    }
+
     int check = 0;
     if(found == NULL) {
         //Didn't find project, let client know
@@ -558,15 +567,17 @@ void* performRollback(int socket, void* arg){
     //read project name and length
     int projNameLen = readSizeClient(socket);
     char* projName = readNClient(socket, projNameLen);
+
     //check if project exists
     pthread_mutex_lock(&headLock);
     node* found = findNode(*head, projName);
     pthread_mutex_unlock(&headLock);
+
     if(found == NULL){
         //if it doenst exist, terminate
         printf("Cannot find project with given name");
         free(projName);
-        write(socket, "fail", 4);
+        write(socket, "Fail", 4);
         return;
     }
     //send success message to client and lock mutex
@@ -578,13 +589,14 @@ void* performRollback(int socket, void* arg){
     char* verNumString = readNClient(socket, verNumStringLen);
     char projVerPath[projNameLen + verNumStringLen + 11];
     sprintf(projVerPath, "%s/.v%s.tar.gz", projName, verNumString);
+    
     //see if version number exists on the server side
     int tarFile = open(projVerPath, O_RDONLY);
     //if it does inform client that we can continue
     if(tarFile > 0) write(socket, "Succ", 4);
     else{
         //if it does exist we tell the client that verison number is not acceptable and we terminate
-        write(socket, "fail", 4);
+        write(socket, "Fail", 4);
         pthread_mutex_unlock(&(found->mutex));
         free(projName);
         free(verNumString);
@@ -615,6 +627,7 @@ void* performRollback(int socket, void* arg){
     //write a success message to server stdout and client
     write(socket, "succ", 4);
     printf("Successful rollback\n");
+    pthread_mutex_unlock(&(found->mutex));
     return;
 }
 
@@ -675,12 +688,10 @@ int recDest(char* path){
             strcat(newPath, entry->d_name);
             //if the entry is a directory, recurse on it
             if(entry->d_type == DT_DIR){
-                printf("Deleting folder: %s\n", newPath);
                 recDest(newPath);
             }
             //if the entry is a file delete it
             else if(entry->d_type == DT_REG){
-                printf("Deleting file: %s\n", newPath);
                 remove(newPath);
             }
             free(newPath);
@@ -689,6 +700,5 @@ int recDest(char* path){
     //close the directory and remove the now empty directory
     closedir(dir);
     int check = rmdir(path);
-    printf("rmDir checl: %d\n", check);
     return 0;
 }
