@@ -1,4 +1,4 @@
-all: client.c server.c sharedFunctions.o avl.o serverOperations.o linkedList.o clientOperations.o
+all: client.c server.c sharedFunctions.o avl.o serverOperations.o linkedList.o clientOperations.o client/ server/
 	gcc -o client/WTF client.c sharedFunctions.o avl.o clientOperations.o -lssl -lcrypto
 	gcc -o server/WTFserver server.c sharedFunctions.o avl.o serverOperations.o linkedList.o -pthread -lssl -lcrypto
 
@@ -17,8 +17,13 @@ clientOperations.o: clientOperations.c
 linkedList.o: linkedList.c
 	gcc -c linkedList.c -pthread
 
+client/:
+	mkdir client
+
+server/:
+	mkdir server
+
 test: test.c
-	make clean
 	make all
 	gcc -o WTFtest test.c
 

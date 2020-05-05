@@ -52,10 +52,14 @@ int main(int argc, char* argv[]){
         sleep(2);
         compareFiles();
         int diffd = open("diffResults.txt", O_RDONLY);
+        if(diffd < 0){
+            //Safety check
+            printf("diffResults.txt was not created. Please try \"make cleantest\", and then re-run WTFtest");
+        }
         int size = lseek(diffd, 0, SEEK_END);
         close(diffd);
         if(size == 0){
-            printf("Success, there are no differences between expected and generated results!\n");
+            printf("Success, there are no differences between expected and generated results! diffResults.txt is blank!\n");
         }
         else{
             printf("There were differences between expected and generated results. Refer to diffResults.txt for details\n");
@@ -100,6 +104,7 @@ void makeResultDirectory(){
     char* hist = "0\n0A ./testProject/test.txt 9b9af6945c95f1aa302a61acf75c9bd6\n0A ./testProject/removeThis.txt d41d8cd98f00b204e9800998ecf8427e\n\n";
     fd = open(".serverResult/testProjectResult/.History", O_WRONLY);
     writeString(fd, hist);
+    //writeString(fd, "change"); <- was used to make sure that diff is working proper in compareChanges
     close(fd);
 
 

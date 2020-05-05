@@ -17,17 +17,6 @@
 #include "sharedFunctions.h"
 #include "avl.h"
 
-/* TODO LIST:::
-    REMEMBER THAT WHEN WE SUBMIT, SERVER AND CLIENT HAVE TO BE IN THE SAME DIRECTORY
-        This might change how things compile. Makefile needs to be changed to reflect new client/server.c paths
-        We also may need to change the #include headers
-
-    COMMENT AND CLEAN UP PRINT STATEMENTS
-    testplan.txt
-    testcases.txt
-    Finish up readme.pdf
-    WTFTest
-*/
 
 //Set global variables so that signal handler can access them
 int sockfd;
