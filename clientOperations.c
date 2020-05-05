@@ -1156,5 +1156,6 @@ int performCheckout(int sockfd, char** argv){
     write(sockfd, "4:succ", 6);
     free(projName);
     free(tarFilePath);
+    printf("Checkout was successful!\n");
     return 0;
 }
