@@ -95,7 +95,10 @@ void* performCurVer(int socket, void* arg){
     char* projName = readNClient(socket, projNameLen);
     
     //Find project
+    pthread_mutex_lock(&headLock);
     node* found = findNode(*head, projName);
+    pthread_mutex_unlock(&headLock);
+
     int check = 0;
     if(found == NULL) {
         //Let client know it doesn't exist
@@ -125,7 +128,9 @@ void performHistory(int socket, void* arg){
     int projNameLen = readSizeClient(socket);
     char* projName = readNClient(socket, projNameLen);
     
+    pthread_mutex_lock(&headLock);
     node* found = findNode(*head, projName);
+    pthread_mutex_unlock(&headLock);
     int check = 0;
     if(found == NULL) {
         //If you cant find project, send mesage to client
@@ -170,7 +175,9 @@ void* performUpgradeServer(int socket, void* arg){
     int projNameLen = readSizeClient(socket);
     char *projName = readNClient(socket, projNameLen);
     //check if project with that name exists in the list of mutexes
+    pthread_mutex_lock(&headLock);
     node* found = findNode(((data*) arg)->head, projName);
+    pthread_mutex_unlock(&headLock);
     //if not found, print failure to server and send failure notice to client.
     if(found == NULL){
         printf("Cannot find project with given name\n");
@@ -271,7 +278,9 @@ void* performPushServer(int socket, void* arg, char* ip){
     int projNameLen = readSizeClient(socket);
     char* projName = readNClient(socket, projNameLen);
     //check if project name exists on server
+    pthread_mutex_lock(&headLock);
     node* found = findNode(((data*) arg)->head, projName);
+    pthread_mutex_unlock(&headLock);
     //if not found, then terminate command and let client know
     if(found == NULL){
         free(projName);
@@ -406,7 +415,9 @@ void* performCommit(int socket, void* arg, char* clientIP){
     int projNameLen = readSizeClient(socket);
     char* projName = readNClient(socket, projNameLen);
     
+    pthread_mutex_lock(&headLock);
     node* found = findNode(*head, projName);
+    pthread_mutex_unlock(&headLock);
     int check = 0;
     if(found == NULL) {
         //Didn't find project, let client know
@@ -489,7 +500,9 @@ void* performCheckout(int socket, void* arg){
     char* projName = readNClient(socket, projNameLen);
 
     //Find project and make sure it exists
+    pthread_mutex_lock(&headLock);
     node* found = findNode(*head, projName);
+    pthread_mutex_unlock(&headLock);
     int check = 0;
     if(found == NULL) {
         printf("Could not find project with that name. Cannot find current version (%s)\n", projName);
@@ -546,7 +559,9 @@ void* performRollback(int socket, void* arg){
     int projNameLen = readSizeClient(socket);
     char* projName = readNClient(socket, projNameLen);
     //check if project exists
+    pthread_mutex_lock(&headLock);
     node* found = findNode(*head, projName);
+    pthread_mutex_unlock(&headLock);
     if(found == NULL){
         //if it doenst exist, terminate
         printf("Cannot find project with given name");
