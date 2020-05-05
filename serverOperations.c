@@ -599,7 +599,7 @@ void* performRollback(int socket, void* arg){
     
     //write a success message to server stdout and client
     write(socket, "succ", 4);
-    printf("Succesful rollback\n");
+    printf("Successful rollback\n");
     return;
 }
 
