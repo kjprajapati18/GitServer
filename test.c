@@ -2,6 +2,10 @@
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <signal.h>
 
 int main(int argc, char* argv[]){
     int pid = fork();
@@ -9,12 +13,10 @@ int main(int argc, char* argv[]){
         int fd = open("serverStdOut.txt", O_CREAT|O_WRONLY, 00600);
         dup2(fd ,1);
         close(fd);
-        //call exec
         char* argv[2] = {"9998", NULL};
         execv("./server/WTFserver", argv);
-        //system("cd server; ./WTFserver 9999 > ../serverStdOut.txt &");
     }
-    else{
+    else if(pid >0){
         system("cd client; ./WTF configure localhost 9998 > ../clientStdOut.txt");
         system("cd client; ./WTF create testProject >> ../clientStdOut.txt");
         system("cd client; ./WTF create destroyThis >> ../clientStdOut.txt");
@@ -35,9 +37,7 @@ int main(int argc, char* argv[]){
         system("cd client; ./WTF history testProject >> ../clientStdOut.txt");
         system("cd client; rm -r testProject");
         system("cd client; ./WTF checkout testProject >> ../clientStdOut.txt");
-        char buffer[20]; 
-        sprintf(buffer, "kill %s", pid);
-        system(buffer);
+        kill(pid, SIGINT);
         wait();
-    }*/
+    }
 }
