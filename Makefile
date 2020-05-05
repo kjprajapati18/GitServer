@@ -28,6 +28,7 @@ test: test.c
 	gcc -o WTFtest test.c
 
 cleantest: 
+	rm WTFtest
 	rm -r testProject
 	rm diffResults.txt
 	rm clientStdOut.txt
@@ -39,7 +40,6 @@ cleantest:
 	rm -r .serverResult
 	rm .ClientResult.txt
 	rm .ServerResult.txt
-	rm WTFtest
 
 clean: avl.o sharedFunctions.o serverOperations.o clientOperations.o linkedList.o client/WTF server/WTFserver
 	rm sharedFunctions.o
@@ -49,3 +49,4 @@ clean: avl.o sharedFunctions.o serverOperations.o clientOperations.o linkedList.
 	rm clientOperations.o
 	rm client/WTF
 	rm server/WTFserver
+	make cleantest
