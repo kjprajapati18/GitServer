@@ -539,7 +539,8 @@ void* performCheckout(int socket, void* arg){
     char* compressCommand = (char*) malloc(compressLength *sizeof(char));
     sprintf(compressCommand, "tar -czvf %s.tar.gz %s --exclude=%s/.Commi* --exclude=%s/.History --exclude=%s/.v*", projName, projName, projName, projName, projName);
     system(compressCommand);
-    free(compressCommand);
+    //free(compressCommand);
+    
 
     //Get tar file path and send it over to client. THen remove
     char tarPath[projNameLen+9];

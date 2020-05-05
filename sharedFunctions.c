@@ -193,15 +193,14 @@ int sendTarFile(int socket, char* tarPath){
         free(tarData);
         return -1;
     }
-    //remove(tarPath);
 
     int tarPathLen = strlen(tarPath);
     
-    char sendBuffer[tarPathLen+tarSize+27];
+    char sendBuffer[tarPathLen+28];
     sprintf(sendBuffer, "%d:%s%d:", tarPathLen, tarPath, tarSize);
     write(socket, sendBuffer, strlen(sendBuffer));
     write(socket, tarData, tarSize);
-    free(tarData);
+    //free(tarData);
 }
 
 char* readWriteTarFile(int sockfd){
@@ -217,8 +216,8 @@ char* readWriteTarFile(int sockfd){
         free(tarFilePath); free(tarFile);
         return NULL;
     }
-
     int tarFd = open(tarFilePath, O_WRONLY | O_CREAT, 00700);
+    //perror("tarfd");
     if(tarFd < 0){
         printf("Could read tar but could not create tar file\n");
         free(tarFilePath); free(tarFile);
