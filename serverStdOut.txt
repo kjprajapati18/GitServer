@@ -1,0 +1,6 @@
+Socket created 
+Socket binded
+Creating list of projects...NULL
+Success!
+server listening
+Server is ready to accept clients!
