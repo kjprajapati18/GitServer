@@ -1,0 +1,338 @@
+1. Start server and kill without clients
+Input::
+	Run WTFserver with valid port number
+	Give SIG INT signal
+
+Output::
+	Prints to server that socket bind and listen is sucessful, along with list of project
+	Final print should be that the server is ready to accept clients
+	Upon SIGINT, server prints that all threads and sockets have been closed successfully
+
+
+2. Client connecting without configure
+Input::
+	Run WTF executable with any server related command (i.e. ./WTF create Project)
+
+Output::
+	Program terminates after printing a fatal error that no configure file is availible
+
+
+3. Client running configure
+Input::
+	Run WTF executable with configure, hostname, and port (i.e. ./WTF configure localhost 9998)
+
+Output::
+	Program prints that a configure file with hostname and IP has been created
+	.configure will read "<hostname>\n<port>" (i.e. "localhost\n9998")
+
+
+4a. Client running a server command while server is not running. (with valid configure) 
+Input::
+	Run WTF executable with any server related command (i.e. ./WTF create Project)
+	Give SIGINT signal
+
+Output::
+	Prints that it found host and opened socket
+	Prints that it could not connect to the server every 3 seconds
+	Upon SIGINT, prints that it closed sockets and freed before terminating
+
+4b. Client running a server command while server is not INTIALLY running (with valid configure)
+Input::
+	Run WTF executable with any server related command (i.e. ./WTF create Project)
+	Run WTFserver with proper port number
+Output::
+	Client prints that it found host and socket. Prints that it cannot connect to server every 3 seconds
+	Upon server start, server will start up as normal and say that its ready to accept client
+	Client's next print will be that it is successfully connected to the server, and then any command related prints
+	Server will also print that a client at this IP has connected to the server, as well as any command related prints
+	Server and Client's final print will be that it disconnected from each other
+	Server executable does not terminate, client executable terminates
+
+
+NOTE::	(From now on, assume that the configure file is correct and that the server on the proper port whenever we run the server executable)
+	(We will also ignore Client and Server prints for successful connections, disconnects, and set-up. Server should still be running unless SIGINT)
+	(WE ARE ALSO IGNORING ALL FILE PATHS that are printed since they show up as a result of the tarring)
+
+
+5a. Client running any invalid command, or any valid command without the correct number of parameters
+Input::
+	Run WTF with any invalid command, or any valid command without the correct number of parameters
+
+Output::
+	Client will print a Fatal Error that the arguments was invalid.
+		If the command was invalid, it will simply say just that.
+		If the command was valid, but did not have the right arguments, it will print the proper usage
+
+5b. Client running a valid command with valid arguments, but the project does not exist
+Input::
+	Run WTF with any command in the proper manner, but call on a project that doesn't exist
+		Project can either be missing on both server or client for commands that require both to have a copy
+		Project must be missing on server for commands that do not require client to have a copy
+Output::
+	Client and server will both print that the project does not exist, and both will print the side that its missing
+
+
+NOTE2::	FROM NOW ON, ASSUME THAT PROJECTS EXIST WHEREVER NEEDED UNLESS OTHERWISE SPECIFIED
+
+
+6a. Client running the add/ command with a file that doesn't exist, cannot be hashed, or on a project that doesn't exist locally
+Input::
+	Run "./WTF add" for any project and any file that fits the description above
+Output::
+	Client will print an error message that corresponds to one of the errors above
+
+6b. Client runs the add command on a valid project with a valid file that is not currently in the Manifest or was locally removed using the remove command
+Input::
+	Run "./WTF add" for any valid project and file
+Output::
+	Client will print that a message that the file was successfully added
+	Client's project Manifest:
+		will have an entry appended for the new file that will read "0A <filepath> <fileHash>\n" if it wasn't there before
+		will have the original entry for the file if we added it back after using the remove command (Deletes the R from the file version in entry)
+
+6c. Client runs the add command on a file that has already been added to the project's Manifest or already exists in the Manifest.
+Input::
+	Run "./WTF add" on any valid project with a file that already exists in the manifest
+Output::
+	Client will print out that the project already has an entry for that file
+	Client Manifest will be unchanged
+
+
+7a. Client runs create on a project that already exists on the server
+Input::
+	Run WTFserver (see NOTE for this case and next few cases)
+	Run WTF with create command on a project that is already on the server
+Output::
+	Server project is untouched.
+	Client prints that that the project already exists on the server, so we cant create
+	No change to client files
+
+7b. Client runs create on a project that does not exist on the server
+Input::
+	Run WTFserver
+	Run WTF with create command with a project name that is not on the server
+Output::
+	Server will have a new directory with project name, initalized with a .Manifest that reads "0\n"
+	Client will have a .Manifest file in a directory (named the project name), and it also reads "0\n"
+	Server and Client will both print that the project was successfully created
+
+
+8a. Client runs destroy on a project that exists on the server
+Input::
+	Run WTFserver (see NOTE for this case and next few cases)
+	Run WTF with destroy command on a project that is already on the server
+Output::
+	Server project is destroyed.
+	Server and Client prints that that the project was successfully destroyed
+	No change to client files
+
+8b. Client runs destroy on a project that does not exist on the server
+Input::
+	Run WTFserver
+	Run WTF with destroy command with a project name that is not on the server
+Output::
+	Server and Client will both print that the project does not exist on the server
+
+
+9a. Client attempts commit when client project is out-dated OR client project is up to date but no changes have been made
+Input::
+	Run WTFserver
+	Run WTF with commit command on a project that either:
+		Case 1- Isn't up to date with the server(manifest versions are different)
+		Case 2- Is up to date but has no modifications
+Output::
+	No files will be created or removed on either side
+	Client prints that the project:
+		Case 1- is outdated and that you must first get your project up-to-date
+		Case 2- has no local changes for the server
+	Server prints that the client failed to finish the commit
+
+9b. Client attempts commit with up-to-date project and local changes (could be add/remove/modify)
+Input::
+	Run WTFserver
+	Run WTF with commit command on a locally changed project (which of course is also on server)
+Output::
+	Client will print the following for each type of change in STDOUT:
+		"A <filepath>\n" 	-for every added file
+		"M <filepath>\n"	-for every modified file
+		"D <filepath>\n"	-for every deleted file
+	Client will create a .Commit file in the project folder. .Commit file has the "#\n" where # is the manifest version. It also contains:
+		"0A <filepath> <liveHash>\n" 			-for every added file
+		"<fileVersion + 1>M <filepath> <liveHash>\n"	-for every modified file
+		"<fileVersion>D <filepath> <32 0's for hash>\n"	-for every deleted file
+	Server will have an exact copy of this .Commit in the project folder, called ".Commit-<client IP>"
+	Both client and server will print that the commit was successful
+
+
+10a. Client updates when client project is out-dated and there are no local changes
+Input::
+	Run WTFserver
+	Run WTF with update command on a project that isn't up to date with the server(manifest versions are different), and no local changes
+Output::
+	Client will print the following for each type of change in STDOUT:
+		"A <filepath>\n" 	-for every file that the client should add
+		"M <filepath>\n"	-for every modified file
+		"D <filepath>\n"	-for every file that the server deleted
+	Client will create a .Update file in the project folder. .Update file has the "#\n" where # is the server's manifest version. It also contains:
+		"A <filepath> <liveHash>\n" 		-for every file to be added
+		"M <filepath> <liveHash>\n"		-for every modified file
+		"D <filepath> <32 0's for hash>\n"	-for every file that will be deleted (from client Manifest)
+	Server prints that it successfullly sent the .Manifest file
+	Client prints that it successfully finished Update
+
+
+10b. Client updates an already up-to-date project (regardless of changes)
+Input::
+	Run WTFserver
+	Run WTF with update command on an up-to-date project
+Output::
+	Client prints that the project is already Up To Date (success)
+	Client creates a blank .Update file in the project folder
+	Server prints that it successfullly sent the .Manifest file
+
+10c. Client attempts to update an out-of-date project with local changes (could be add/remove/modify)
+Input::
+	Run WTFserver
+	Run WTF with update command on a valid, locally changed, out-dated project
+Output::
+	Client will print the following for each type of change in STDOUT:
+		"A <filepath>\n" 	-for every added file
+		"M <filepath>\n"	-for every modified file
+		"D <filepath>\n"	-for every deleted file
+		"C <filepath>\n"	-for every conflict file
+	Client will create a .Conflict file in the project folder that contains:
+		"C <filepath> <liveHash>\n"		-for every conflict file that is hashable
+		"C <filepath> <32 0's for hash>\n"	-for every conflict file that is unhashable
+	Client will print that there are conflicts that the user must resolve before performing update
+	Server will print that it successfully sent the .Manifest file for the project
+
+
+11a. Client attempts push on a project that is locally out-of-date, does not contain a .Commit file that matches the server's, or contains a .Update
+Input::
+	Run WTFserver
+	Run WTF with push command on a project that satisfies any of the above conditions
+Output::
+	Client will print that it cannot push with an error of why it cannot push
+	Server will print:
+		-that the client failed (for all cases)
+		-that the commits didn't match up
+	No files will be updated
+
+11b. Client attempts to push an locally up-to-date project with a valid .Commit file
+Input::
+	Run WTFserver
+	Run WTF with push command on project that satifies the above condition.
+Output::
+	Server will delete all .Commit-<IP> files
+	Client will delete its .Commit file
+	Server will print that the commits match and that it successfully performed the client's push
+	Server files will be updated based on .Commit files. Manifest version and file versions of modified files will be incremented
+	Client will print that the push was successful
+	Client will have an exact copy of the server's manifest
+	
+12a. Client performs Upgrade on a project with an out-of-date .Update file (version does not match manifest), no update file, or a .Conflict file
+Input::
+	Run WTFserver
+	Run WTF with Upgrade command on a project that satifies either of the above condition.
+Output::
+	Client and Server will print an error message saying which one of the 3 conditions it is
+	Nothing else changes
+
+12b. Client performs Upgrade on a project with a valid .Update file (can be blank)
+Input::
+	Run WTFserver
+	Run WTF with Upgrade command on a project that satifies the above condition.
+Output::
+	Client and Server prints that the upgrade was successful
+	The client's .Update file is removed. All files that were mentioned added or modified in .Update have now been updated on the client side.
+	The client's project manifest now matches the server's manifest.
+	Nothing else changes
+
+
+13a. Client removes a file that doesn't exist in the .Manifest (does not require server connection)
+Input::
+	Run WTF with remove command on a file that doesn't exist in a valid project
+Output::
+	Client will print that there is no entry for this file in the Manifest. Manifest remains unchanged
+
+13b. Client removes a file that is in the .Manifest or was locally added to the .Manifest
+Input::
+	Run WTF with remove command on a project for a file that:
+		Case 1- was already in the .Manifest (version number does not have an A)
+		Case 2- was locally added to the manifest (version number has an A)
+Output::
+	Client will print that the remove command was successful
+	The .Manifest:
+		Case 1- will have an R appended to the file version number of the entry
+		Case 2- will have no entry at all for the given file (whole entry was deleted from Manifest)
+
+
+REMINDER:: 	We have already included one general case for when the project does not exists in the correct locations.
+		BOTH THE SERVER AND CLIENT will PRINT that the project cannot be found on the server for below cases.
+		Thus, we are not explicitly including them below to avoid redundancies, but we have already covered them.
+
+
+14a. Client performs checkout when it already has a directory with the project name (blank directory or can have files in it)
+Input::
+	Run WTFserver
+	Run WTF with Checkout command on a project that satifies the above condition.
+Output::
+	Client will say that the directory already exists on the client-side, and that the user should remove it before performing checkout
+	Server will print that the client failed to perform checkout because it already has a directory with the project name
+
+14b. Client performs checkout on a project and does not have a directory with the same name
+Input::
+	Run WTFserver
+	Run WTF with Checkout command on a project that satifies the above condition.
+Output::
+	Both client and server will print out that the client successfully received the project
+	Client will now have an exact copy of the server's project folder (without .History, previous versions, and .Commit-<IP> files)
+
+
+15a. Client performs history on an existing server project that does not contain a .History file (project was created without any pushes)
+Input::
+	Run WTFserver
+	Run WTF with history command on a project satisfying the above
+Output::
+	Server will print that it successfully sent its History to the client
+	Client will print that it successfully received the History and then print out "0\n" to STDOUT
+
+15b. Client performs history on an existing server project that contains a .History file
+Input::
+	Run WTFserver
+	Run WTF with history command on a project satisfying the above
+		For example, the .History could read "0\nA <filepath> <fileHash>\n\n"
+Output::
+	Server will print that it successfully sent its History to the client
+	Client will print that it successfully received the History and then print it out to STDOUT
+		In the input example, the print would be "0\nA <filepath> <fileHash>\n\n"
+
+
+16. Client performs currentVersion on an existing server project
+Input::
+	Run WTFserver
+	Run WTF with currentversion command on a project satisfying the above
+		For example, the .Manifest could read "1\n<fileVer1> <filepath1> <fileHash1>\n<fileVer2> <filepath2> <fileHash2>\n"
+Output::
+	Server will print that it successfully sent the current version to the client
+	Client will print that it successfully received the current version and then print it out to STDOUT
+		In the input example, the print would be "1\n<fileVer1> <filepath1>\n<fileVer2> <filepath2>\n"
+
+
+17a. Client performs rollback to a version that doesn't exist (version number is not a number or is not less than manifest version)
+Input::
+	Run WTFserver
+	Run WTF with rollback command on a valid project but with a version number that satisfies the above case
+Output::
+	Server will not rollback version or perform any changes
+	Server will print that the Client sent an invalid version number
+	Client will print that the version number was not found on the server side
+
+17b. Client performs rollback to a version that is valid
+Input::
+	Run WTFserver
+	Run WTF with rollback command on a valid project and valid version number
+Output::
+	Server project files revert to specified version
+	Server and Client will print that the rollback was successful
+
