@@ -39,6 +39,7 @@ cleantest:
 	rm -r .serverResult
 	rm .ClientResult.txt
 	rm .ServerResult.txt
+	rm WTFtest
 
 clean: avl.o sharedFunctions.o serverOperations.o clientOperations.o linkedList.o client/WTF server/WTFserver
 	rm sharedFunctions.o
