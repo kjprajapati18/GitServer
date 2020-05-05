@@ -1,0 +1,108 @@
+Successfully created configure file with hostname: localhost and port: 9998
+successfully opened socket
+successfully found host
+successfully connected to host.
+You are connected to the server
+testProject was created on server!
+Project successfully created locally!
+Disconnected from server
+successfully opened socket
+successfully found host
+successfully connected to host.
+You are connected to the server
+destroyThis was created on server!
+Project successfully created locally!
+Disconnected from server
+successfully opened socket
+successfully found host
+successfully connected to host.
+You are connected to the server
+Successfully destroyed project
+Disconnected from server
+Successfully added file to .Manifest
+Successfully added file to .Manifest
+successfully opened socket
+successfully found host
+successfully connected to host.
+You are connected to the server
+Performing Commit
+A ./testProject/test.txt
+A ./testProject/removeThis.txt
+Sucessfully sent and created .Commit files on client and server
+Disconnected from server
+successfully opened socket
+successfully found host
+successfully connected to host.
+You are connected to the server
+./testProject/test.txt
+./testProject/removeThis.txt
+Successfully pushed to server!
+Disconnected from server
+Successfully removed file from manifest.
+successfully opened socket
+successfully found host
+successfully connected to host.
+You are connected to the server
+Performing Commit
+D ./testProject/removeThis.txt
+Sucessfully sent and created .Commit files on client and server
+Disconnected from server
+successfully opened socket
+successfully found host
+successfully connected to host.
+You are connected to the server
+Successfully pushed to server!
+Disconnected from server
+successfully opened socket
+successfully found host
+successfully connected to host.
+You are connected to the server
+Successfully rolled back to version 1
+Disconnected from server
+successfully opened socket
+successfully found host
+successfully connected to host.
+You are connected to the server
+Performing Update
+A ./testProject/removeThis.txt
+Update was successful!
+Disconnected from server
+successfully opened socket
+successfully found host
+successfully connected to host.
+You are connected to the server
+testProject/.Update
+testProject/.Manifest
+./testProject/removeThis.txt
+Upgraded local copy of project successfully
+Disconnected from server
+successfully opened socket
+successfully found host
+successfully connected to host.
+You are connected to the server
+Success! Current Version received:
+1
+0 ./testProject/removeThis.txt
+0 ./testProject/test.txt
+Disconnected from server
+successfully opened socket
+successfully found host
+successfully connected to host.
+You are connected to the server
+Success! History received:
+0
+0A ./testProject/test.txt 9b9af6945c95f1aa302a61acf75c9bd6
+0A ./testProject/removeThis.txt d41d8cd98f00b204e9800998ecf8427e
+
+Disconnected from server
+successfully opened socket
+successfully found host
+successfully connected to host.
+You are connected to the server
+Performing Checkout
+testProject/
+testProject/.Manifest
+testProject/test.txt
+testProject/removeThis.txt
+Checkout was successful!
+Disconnected from server
