@@ -1,2 +1,3 @@
 # GitServer
-Systems Programming Assignment 2 (third assignment). Coding a smaller scale git with C
+Coding a smaller scale git with C. Practice with sockets, threading, and forking.
+See Readme.pdf for information on program
